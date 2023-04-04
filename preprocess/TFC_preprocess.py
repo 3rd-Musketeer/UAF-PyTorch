@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class AugmentBank:
     def __init__(self, wl):
-        self.fns = [jitter, scaling, shuffle_channels, neighboring_segment, reverse]
+        self.fns = [jitter, scaling, permute]
         self.wl = wl
 
     def __call__(self, x_t1, x_t2):
@@ -22,6 +22,7 @@ class AugmentBank:
 def generate_augment_pairs(sigs, labs, config):
     wl = config.window_length
     seg = config.window_length + config.window_padding
+    step = config.window_step
     threshold = config.threshold
     classes = config.classes
 
@@ -58,9 +59,9 @@ def generate_augment_pairs(sigs, labs, config):
                     y = torch.tensor(y, dtype=torch.int64)
 
                     pairs.append((x_t1, x_f, aug_t, aug_f, y))
-            lf += seg
-            rg1 += seg
-            rg2 += seg
+            lf += step
+            rg1 += step
+            rg2 += step
 
     return pairs
 

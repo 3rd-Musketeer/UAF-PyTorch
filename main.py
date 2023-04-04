@@ -55,7 +55,7 @@ lit_TFC = LitTFC(pretrained_model_path, configs)
 
 finetune_loop = pl.Trainer(
     deterministic=False,
-    max_epochs=100,
+    max_epochs=200,
     precision="16-mixed",
     logger=logger,
     log_every_n_steps=1,
@@ -64,14 +64,14 @@ finetune_loop = pl.Trainer(
 
 finetune_loop.fit(
     model=lit_TFC,
-    train_dataloaders=emg_gesture_dataset.val_dataloader()
+    train_dataloaders=emg_gesture_dataset.val_dataloader(),
 )
 
 emg_gesture_dataset.setup("test")
 
 finetune_loop.test(
     model=lit_TFC,
-    dataloaders=emg_gesture_dataset.val_dataloader()
+    dataloaders=emg_gesture_dataset.test_dataloader(),
 )
 
 baseline_model = RandomForestClassifier(n_estimators=20, max_depth=30)

@@ -129,7 +129,7 @@ class TFCLoss(nn.Module):
         self.triplet_loss = lambda ap, an: ap - an + margin
         self.weight = weight
 
-    def forward(self, x_repr, aug_repr):
+    def forward(self, x_repr, aug_repr, mode="pretrain"):
         x_ht, x_hf, x_zt, x_zf = x_repr
         aug_ht, aug_hf, aug_zt, aug_zf = aug_repr
 
@@ -144,5 +144,9 @@ class TFCLoss(nn.Module):
         tfc_loss = (self.triplet_loss(ap, an1) +
                     self.triplet_loss(ap, an2) +
                     self.triplet_loss(ap, an3)) / 3
-
-        return self.weight * tfc_loss + (1-self.weight) * sim_loss
+        if mode == "pretrain":
+            return self.weight * tfc_loss + (1-self.weight) * sim_loss
+        elif mode == "finetune":
+            return self.weight * ap + (1-self.weight) * sim_loss
+        else:
+            raise ValueError(f"Unknow mode {mode}")

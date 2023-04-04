@@ -24,6 +24,7 @@ class EMGGestureConfig:
         self.classes = (1, 2, 3, 4, 5, 6)
         self.window_length = 512
         self.window_padding = 32
+        self.window_step = 512
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)
@@ -58,31 +59,31 @@ class ModelConfig:
 class TrainingConfig:
     def __init__(self, config):
         self.bag_of_metrics = {
-            "accuracy": Accuracy(
-                task="multiclass",
-                num_classes=config.num_classes,
-                average="macro",
-            ),
+            # "accuracy": Accuracy(
+            #     task="multiclass",
+            #     num_classes=config.num_classes,
+            #     average="macro",
+            # ),
             "f1": F1Score(
                 task="multiclass",
                 num_classes=config.num_classes,
                 average="macro",
             ),
-            "precision": Precision(
-                task="multiclass",
-                num_classes=config.num_classes,
-                average="macro",
-            ),
-            "recall": Recall(
-                task="multiclass",
-                num_classes=config.num_classes,
-                average="macro",
-            ),
-            "auroc": AUROC(
-                task="multiclass",
-                num_classes=config.num_classes,
-                average="macro",
-            ),
+            # "precision": Precision(
+            #     task="multiclass",
+            #     num_classes=config.num_classes,
+            #     average="macro",
+            # ),
+            # "recall": Recall(
+            #     task="multiclass",
+            #     num_classes=config.num_classes,
+            #     average="macro",
+            # ),
+            # "auroc": AUROC(
+            #     task="multiclass",
+            #     num_classes=config.num_classes,
+            #     average="macro",
+            # ),
         }
         self.seed = 114514
         self.encoder_plr = 1e-3
@@ -91,5 +92,6 @@ class TrainingConfig:
         self.encoder_weight_decay = 3e-5
         self.classifier_weight_decay = 0
         self.classifier_lrs_factor = 0.1
-        self.classifier_lrs_cooldown = 10
+        self.classifier_lrs_cooldown = 5
+        self.classifier_lrs_patience = 10
         self.classifier_lrs_minlr = self.classifier_lr * 1e-3
