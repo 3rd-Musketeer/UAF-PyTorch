@@ -97,13 +97,13 @@ class EMGGestureDataModule(pl.LightningDataModule):
             )
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.config.batch_size, shuffle=True)
+        return DataLoader(self.train_set, batch_size=self.config.batch_size, shuffle=True, drop_last=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.config.batch_size, shuffle=True)
+        return DataLoader(self.val_set, batch_size=self.config.batch_size, shuffle=True, drop_last=True)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.config.batch_size)
+        return DataLoader(self.test_set, batch_size=self.config.batch_size, drop_last=True)
 
     def predict_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.config.batch_size)
+        return DataLoader(self.test_set, batch_size=self.config.batch_size, drop_last=True)

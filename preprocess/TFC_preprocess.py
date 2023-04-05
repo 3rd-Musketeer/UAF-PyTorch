@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class AugmentBank:
     def __init__(self, wl):
-        self.fns = [jitter, scaling, permute]
+        self.fns = [jitter, scaling, shuffle_channels, permute]
         self.wl = wl
 
     def __call__(self, x_t1, x_t2):

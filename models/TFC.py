@@ -129,10 +129,10 @@ class LitTFCEncoder(pl.LightningModule):
         loss = self.loss(
             x_repr=(x_ht, x_hf, x_zt, x_zf),
             aug_repr=(aug_ht, aug_hf, aug_zt, aug_zf),
-            mode="finetune",
+            mode="pretrain",
         )
 
-        feature = torch.concatenate([x_zt, x_zf], dim=-1)
+        feature = torch.cat((x_zt, x_zf), dim=-1)
 
         return loss, feature
 
@@ -141,8 +141,10 @@ class LitTFC(pl.LightningModule):
     def __init__(self, pretrained_encoder_path, config: Configs):
         super().__init__()
         self.automatic_optimization = False
+        self.encoder_optimizer_states = None
         if pretrained_encoder_path:
             self.encoder = LitTFCEncoder.load_from_checkpoint(pretrained_encoder_path)
+            self.encoder_optimizer_states = torch.load(pretrained_encoder_path)["optimizer_states"][0]
         else:
             self.encoder = LitTFCEncoder(config)
         self.classifier = MLP(
@@ -188,26 +190,27 @@ class LitTFC(pl.LightningModule):
         loss = ce_loss + tfc_loss
 
         if "train" in mode:
-            self.manual_optimize(ce_loss, tfc_loss, metrics[f"{mode}_f1"])
+            self.manual_optimize(ce_loss, tfc_loss, ce_loss)
 
         return loss
 
     def manual_optimize(self, ce_loss, tfc_loss, monitor):
         encoder_opt, classifier_opt = self.optimizers()
-        classifier_lrs = self.lr_schedulers()
+        classifier_lrs, encoder_lrs = self.lr_schedulers()
 
         encoder_opt.zero_grad()
         classifier_opt.zero_grad()
 
         self.manual_backward(ce_loss + tfc_loss)
 
-        if self.trainer.current_epoch < 10:
+        if self.trainer.current_epoch < 1000:
             encoder_opt.step()
         classifier_opt.step()
 
         if self.trainer.current_epoch != self.last_epoch:
             self.last_epoch = self.trainer.current_epoch
             classifier_lrs.step(torch.mean(torch.Tensor(self.metric_accummulator)))
+            encoder_lrs.step()
             self.metric_accummulator = []
         else:
             self.metric_accummulator.append(monitor)
@@ -218,24 +221,28 @@ class LitTFC(pl.LightningModule):
             lr=self.config.training_config.classifier_lr,
             weight_decay=self.config.training_config.classifier_weight_decay,
         )
-        optimizer_encoder = torch.optim.Adam(
-            self.encoder.model.parameters(),
-            lr=self.config.training_config.encoder_flr,
-            weight_decay=self.config.training_config.encoder_weight_decay,
-        )
+        optimizer_encoder = torch.optim.Adam(self.encoder.parameters())
+        if self.encoder_optimizer_states:
+            optimizer_encoder.load_state_dict(self.encoder_optimizer_states)
 
         scheduler_classifier = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer_classifier,
             patience=self.config.training_config.classifier_lrs_patience,
-            mode="max",
+            mode="min",
             factor=self.config.training_config.classifier_lrs_factor,
             cooldown=self.config.training_config.classifier_lrs_cooldown,
             min_lr=self.config.training_config.classifier_lrs_minlr,
         )
 
+        scheduler_encoder = torch.optim.lr_scheduler.StepLR(
+            optimizer=optimizer_encoder,
+            step_size=self.config.training_config.finetune_epoch // 4,
+            gamma=0.1,
+        )
+
         self.metric_accummulator = []
 
-        return [optimizer_encoder, optimizer_classifier], [scheduler_classifier]
+        return [optimizer_encoder, optimizer_classifier], [scheduler_classifier, scheduler_encoder]
 
     # def configure_optimizers(self):
     #     optimizer = torch.optim.Adam(
