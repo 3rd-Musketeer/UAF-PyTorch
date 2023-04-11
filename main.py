@@ -26,15 +26,14 @@ seed_everything(configs.training_config.seed)
 for fn in configs.training_config.bag_of_metrics.values():
     fn.to(device)
 
-
 emg_gesture_dataset = EMGGestureDataModule(configs.dataset_config)
 emg_gesture_dataset.prepare_data()
 
 lit_TFC_encoder = LitTFCEncoder(configs)
 
 logger = TensorBoardLogger(
-    save_dir="",
-    name="test_run"
+    save_dir=configs.training_config.log_save_dir,
+    name=configs.training_config.experiment_name,
 )
 
 pretrain_loop = pl.Trainer(
@@ -53,11 +52,12 @@ pretrain_loop.fit(
     val_dataloaders=emg_gesture_dataset.val_dataloader(),
 )
 
-save_dir = os.path.join(logger.log_dir, config_dir.split("/")[1])
-print(f"Saving config file at {save_dir}")
-print(copyfile(config_dir, save_dir))
-print(f"Saving preprocess file at {save_dir}")
-print(copyfile(preprocess_dir, save_dir))
+config_save_dir = os.path.join(logger.log_dir, config_dir.split("/")[1])
+print(f"Saving config file at {config_save_dir}")
+print(copyfile(config_dir, config_save_dir))
+preprocess_save_dir = os.path.join(logger.log_dir, preprocess_dir.split("/")[1])
+print(f"Saving preprocess file at {preprocess_save_dir}")
+print(copyfile(preprocess_dir, preprocess_save_dir))
 
 ckpt_path = os.path.join(logger.log_dir, "checkpoints")
 if os.path.exists(ckpt_path):
@@ -73,7 +73,8 @@ finetune_loop = pl.Trainer(
     precision="16-mixed",
     logger=logger,
     log_every_n_steps=1,
-    enable_checkpointing=False
+    enable_checkpointing=False,
+    limit_train_batches=1.0,
 )
 
 finetune_loop.fit(
@@ -91,6 +92,6 @@ finetune_loop.test(
 baseline_model = RandomForestClassifier(n_estimators=20, max_depth=30)
 get_baseline_performance(
     model=baseline_model,
-    train_loader=emg_gesture_dataset.train_dataloader(),
+    train_loader=emg_gesture_dataset.val_dataloader(),
     test_loader=emg_gesture_dataset.test_dataloader(),
 )

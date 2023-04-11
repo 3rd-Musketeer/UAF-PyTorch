@@ -15,14 +15,14 @@ class EMGGestureConfig:
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 256
-        self.partition = (0.4, 0.4, 0.2)
+        self.partition = [0.4, 0.4, 0.2]
 
         self.sampling_freq = 1000
         self.pass_band = 200
-        self.classes = (1, 2, 3, 4, 5, 6)
+        self.classes = [1, 2, 3, 4, 5, 6]
         self.window_length = 512
         self.window_padding = 32
-        self.window_step = 512
+        self.window_step = 256
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)
@@ -89,12 +89,15 @@ class TrainingConfig:
             #     average="macro",
             # ),
         }
+        self.log_save_dir = "log"
+        self.experiment_name = "test_phase"
+
         self.seed = 315
-        self.pretrain_epoch = 15
+        self.pretrain_epoch = 5
         self.finetune_epoch = 70
 
         self.encoder_plr = 1e-4
-        self.encoder_flr = 1e-4
+        self.encoder_flr = 1e-5
         self.classifier_lr = 1e-3
         self.encoder_weight_decay = 3e-5
         self.classifier_weight_decay = 1e-5

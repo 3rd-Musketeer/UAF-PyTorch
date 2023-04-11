@@ -8,6 +8,7 @@ import numpy as np
 from preprocess.TFC_preprocess import TFCDataset
 from torch.utils.data import DataLoader
 import torch
+import json
 
 
 def get_file_dirs(path, partition):
@@ -55,6 +56,7 @@ class EMGGestureDataModule(pl.LightningDataModule):
     ):
         super(EMGGestureDataModule, self).__init__()
         self.config = config
+        self.similarity_check = ["partition", "sampling_freq", "pass_band"]
 
     def prepare_data(self) -> None:
         # download dataset
@@ -67,16 +69,39 @@ class EMGGestureDataModule(pl.LightningDataModule):
             if not os.path.exists(os.path.join(self.config.save_dir, dir_name)):
                 with zipfile.ZipFile(file_dir, mode="r") as file:
                     file.extractall(self.config.save_dir)
+
+        dataset_config = {
+            itm: self.config.__getattribute__(itm) for itm in self.similarity_check
+        }
+        similarity_flag = True
+
         # split dataset
-        train_files, val_files, test_files = get_file_dirs(target_dir, self.config.partition)
-        # preprocess dataset
-        if not os.path.exists(path := os.path.join(self.config.save_dir, "train_set.pt")):
+        if os.path.exists(jsfile_path := os.path.join(self.config.save_dir, "dataset_config.json")):
+            with open(jsfile_path, "r") as jsfile:
+                prev_dataset_config = json.load(jsfile)
+            for itm in self.similarity_check:
+                if prev_dataset_config[itm] != dataset_config[itm]:
+                    similarity_flag = False
+                    break
+        else:
+            similarity_flag = False
+
+        if not similarity_flag:
+            train_files, val_files, test_files = get_file_dirs(target_dir, self.config.partition)
+            print("Regenerating cache dataset")
+            with open(jsfile_path, "w") as jsfile:
+                json.dump(dataset_config, jsfile)
+            # preprocess dataset
+            # if not os.path.exists(path := os.path.join(self.config.save_dir, "train_set.pt")):
+            path = os.path.join(self.config.save_dir, "train_set.pt")
             train_sig, train_lab = extract_raw_data(train_files)
             torch.save({"sig": train_sig, "lab": train_lab}, path)
-        if not os.path.exists(path := os.path.join(self.config.save_dir, "val_set.pt")):
+            # if not os.path.exists(path := os.path.join(self.config.save_dir, "val_set.pt")):
+            path = os.path.join(self.config.save_dir, "val_set.pt")
             val_sig, val_lab = extract_raw_data(val_files)
             torch.save({"sig": val_sig, "lab": val_lab}, path)
-        if not os.path.exists(path := os.path.join(self.config.save_dir, "test_set.pt")):
+            # if not os.path.exists(path := os.path.join(self.config.save_dir, "test_set.pt")):
+            path = os.path.join(self.config.save_dir, "test_set.pt")
             test_sig, test_lab = extract_raw_data(test_files)
             torch.save({"sig": test_sig, "lab": test_lab}, path)
 
@@ -97,13 +122,27 @@ class EMGGestureDataModule(pl.LightningDataModule):
             )
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, batch_size=self.config.batch_size, shuffle=True, drop_last=True)
+        return DataLoader(
+            self.train_set,
+            batch_size=self.config.batch_size,
+            shuffle=True,
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, batch_size=self.config.batch_size, shuffle=True, drop_last=True)
+        return DataLoader(
+            self.val_set,
+            batch_size=self.config.batch_size,
+            shuffle=True,
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.config.batch_size, drop_last=True)
+        return DataLoader(
+            self.test_set,
+            batch_size=self.config.batch_size,
+        )
 
     def predict_dataloader(self):
-        return DataLoader(self.test_set, batch_size=self.config.batch_size, drop_last=True)
+        return DataLoader(
+            self.test_set,
+            batch_size=self.config.batch_size,
+        )

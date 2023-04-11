@@ -236,7 +236,7 @@ class LitTFC(pl.LightningModule):
 
         scheduler_encoder = torch.optim.lr_scheduler.StepLR(
             optimizer=optimizer_encoder,
-            step_size=self.config.training_config.finetune_epoch // 4,
+            step_size=self.config.training_config.finetune_epoch // 5,
             gamma=0.1,
         )
 
@@ -246,9 +246,18 @@ class LitTFC(pl.LightningModule):
 
     # def configure_optimizers(self):
     #     optimizer = torch.optim.Adam(
-    #         self.classifier.parameters(),
-    #         lr=self.config.training_config.classifier_lr,
-    #         weight_decay=self.config.training_config.encoder_weight_decay,
+    #         [
+    #             {
+    #                 "params": self.classifier.parameters(),
+    #                 "weight_decay": self.config.training_config.encoder_weight_decay,
+    #                 "lr": self.config.training_config.encoder_flr,
+    #             },
+    #             {
+    #                 "params": self.encoder.model.parameters(),
+    #                 "weight_decay": self.config.training_config.classifier_weight_decay,
+    #                 "lr": self.config.training_config.classifier_lr,
+    #             },
+    #         ],
     #     )
     #
     #     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(

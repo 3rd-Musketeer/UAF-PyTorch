@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
-from numpy.fft import fft
+from numpy.fft import fft, rfft
 from utils.augmentations import *
 from scipy import signal as scisig
 from torch.utils.data import Dataset
@@ -47,7 +49,22 @@ def generate_augment_pairs(sigs, labs, config):
                     y = mapping[y]
                     x_t1 = sig[:, lf:rg1]
                     x_t2 = sig[:, lf:rg2]
+
+                    spectrum = np.fft.rfft(x_t1, axis=-1) / wl
+
                     x_f = np.abs(fft(x_t1, axis=-1))
+                    magnitude = np.abs(spectrum)[..., :-1]
+                    phase = np.abs(np.angle(spectrum)[..., :-1])
+                    # plt.subplot(2, 1, 1)
+                    # plt.plot(magnitude[0, ...])
+                    # plt.subplot(2, 1, 2)
+                    # plt.plot(phase[0, ...])
+                    # plt.show()
+
+                    x_f = np.concatenate(
+                        [magnitude, phase],
+                        axis=-1,
+                    )
 
                     aug_t = time_augment(x_t1, x_t2)
                     aug_f = frequency_masking(x_f)
