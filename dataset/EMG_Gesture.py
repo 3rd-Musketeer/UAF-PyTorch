@@ -5,7 +5,6 @@ from utils.download import download
 import zipfile
 import pandas as pd
 import numpy as np
-from preprocess.TFC_preprocess import TFCDataset
 from torch.utils.data import DataLoader
 import torch
 import json
@@ -52,9 +51,11 @@ def extract_raw_data(file_paths):
 class EMGGestureDataModule(pl.LightningDataModule):
     def __init__(
             self,
+            dataset_type,
             config: EMGGestureConfig,
     ):
         super(EMGGestureDataModule, self).__init__()
+        self.dataset_type = dataset_type
         self.config = config
         self.similarity_check = ["partition", "sampling_freq", "pass_band"]
 
@@ -107,16 +108,16 @@ class EMGGestureDataModule(pl.LightningDataModule):
 
     def setup(self, stage):
         if stage == "fit":
-            self.train_set = TFCDataset(
+            self.train_set = self.dataset_type(
                 os.path.join(self.config.save_dir, "train_set.pt"),
                 self.config,
             )
-            self.val_set = TFCDataset(
+            self.val_set = self.dataset_type(
                 os.path.join(self.config.save_dir, "val_set.pt"),
                 self.config,
             )
         elif stage == "test" or stage == "predict":
-            self.test_set = TFCDataset(
+            self.test_set = self.dataset_type(
                 os.path.join(self.config.save_dir, "test_set.pt"),
                 self.config,
             )
@@ -139,10 +140,12 @@ class EMGGestureDataModule(pl.LightningDataModule):
         return DataLoader(
             self.test_set,
             batch_size=self.config.batch_size,
+            shuffle=True
         )
 
     def predict_dataloader(self):
         return DataLoader(
             self.test_set,
             batch_size=self.config.batch_size,
+            shuffle=True,
         )

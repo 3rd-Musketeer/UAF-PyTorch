@@ -15,7 +15,7 @@ class EMGGestureConfig:
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 128
-        self.partition = [0.4, 0.4, 0.2]
+        self.partition = [0.8, 0., 0.2]
 
         self.sampling_freq = 1000
         self.pass_band = 200
@@ -44,7 +44,7 @@ class ModelConfig:
 
         self.num_classes = dataset_config.num_classes
         self.dropout = 0.35
-        self.features_len = 128 // 8
+        self.features_len = self.span // 8
 
         self.hidden_dim = 100
         self.timesteps = 6
@@ -82,10 +82,12 @@ class TrainingConfig:
             # ),
         }
         self.log_save_dir = "log"
-        self.experiment_name = "test_phase"
+        self.experiment_name = "test_TSTCC"
 
-        self.seed = 315
-        self.pretrain_epoch = 40
+        self.mode = "pretrain_finetune"
+
+        self.seed = 114514
+        self.pretrain_epoch = 0
         self.finetune_epoch = 40
 
         self.lr = 3e-4

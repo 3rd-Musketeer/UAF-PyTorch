@@ -9,6 +9,7 @@ from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 from lightning.pytorch import seed_everything
 from shutil import copyfile
+from preprocess.TFC_preprocess import TFCDataset
 
 # Initialization
 config_dir = "configs/TFC_configs.py"
@@ -26,7 +27,7 @@ seed_everything(configs.training_config.seed)
 for fn in configs.training_config.bag_of_metrics.values():
     fn.to(device)
 
-emg_gesture_dataset = EMGGestureDataModule(configs.dataset_config)
+emg_gesture_dataset = EMGGestureDataModule(TFCDataset, configs.dataset_config)
 emg_gesture_dataset.prepare_data()
 
 lit_TFC_encoder = LitTFCEncoder(configs)

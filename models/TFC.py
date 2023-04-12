@@ -184,7 +184,7 @@ class LitTFC(pl.LightningModule):
         for name, fn in self.config.training_config.bag_of_metrics.items():
             metrics[f"{mode}_{name}"] = fn(preds, labels)
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
-        ce_loss = self.loss(preds, targets)
+        ce_loss = self.loss(logits, targets)
         self.log(f"{mode}_ce_loss", ce_loss, on_epoch=True, prog_bar=True)
 
         loss = ce_loss + tfc_loss

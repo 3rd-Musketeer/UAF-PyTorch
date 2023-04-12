@@ -55,7 +55,7 @@ def preprocess(data_dir, config):
     return augmented_pairs
 
 
-class TFCDataset(Dataset):
+class TSTCCDataset(Dataset):
     def __init__(self, data_dir, config):
         self.augmented_pairs = preprocess(data_dir, config)
 
