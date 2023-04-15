@@ -103,8 +103,8 @@ class LitTSTCC(pl.LightningModule):
             lambda2 = 0.7
             loss = (temp_cont_loss1 + temp_cont_loss2) * lambda1 + self.contrast_loss(zis, zjs) * lambda2
         elif mode == "finetune":  # supervised training or fine-tuning
-            predictions, features = output
-            target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
+            predictions, _ = output
+            # target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
             loss = self.loss(predictions, y)
         else:
             raise ValueError(f"Unknown mode \"{mode}\"")
@@ -117,7 +117,7 @@ class LitTSTCC(pl.LightningModule):
     def predict_loop(self, batch, idx):
         x, _, _, y = batch
         predictions, features = self.model(x)
-        target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
+        # target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
         loss = self.loss(predictions, y)
 
         metrics = {}
