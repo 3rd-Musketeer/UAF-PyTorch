@@ -1,8 +1,8 @@
 import os
-from models.ML_baselines import get_baseline_performance
+from models.baselines.ML_baselines import get_baseline_performance
 from sklearn.ensemble import RandomForestClassifier
 from dataset.EMG_Gesture import EMGGestureDataModule
-from models.TSTCC import LitTSTCC
+from models.TSTCC.lit_model import LitTSTCC
 from configs.TSTCC_configs import Configs
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
