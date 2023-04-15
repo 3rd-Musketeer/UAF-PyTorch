@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
-
 class NTXentLoss:
     """NTXentLoss as originally described in https://arxiv.org/abs/2002.05709.
     This loss is used in self-supervised learning setups and requires the two views of the input datapoint
@@ -129,13 +128,13 @@ class TFCLoss(nn.Module):
         self.triplet_loss = lambda ap, an: ap - an + margin
         self.weight = weight
 
-    def forward(self, x_repr, aug_repr):
+    def forward(self, x_repr, aug_repr, mode="pretrain"):
         x_ht, x_hf, x_zt, x_zf = x_repr
         aug_ht, aug_hf, aug_zt, aug_zf = aug_repr
 
         sim_t = self.contrast_loss(x_ht, aug_ht)
         sim_f = self.contrast_loss(x_hf, aug_hf)
-        sim_loss = (sim_t+sim_f) / 2
+        sim_loss = (sim_t + sim_f)
 
         ap = self.contrast_loss(x_zt, x_zf)
         an1 = self.contrast_loss(x_zt, aug_zf)
@@ -143,6 +142,10 @@ class TFCLoss(nn.Module):
         an3 = self.contrast_loss(aug_zt, aug_zf)
         tfc_loss = (self.triplet_loss(ap, an1) +
                     self.triplet_loss(ap, an2) +
-                    self.triplet_loss(ap, an3)) / 3
-
-        return self.weight * tfc_loss + (1-self.weight) * sim_loss
+                    self.triplet_loss(ap, an3))
+        if mode == "pretrain":
+            return self.weight * tfc_loss + (1 - self.weight) * sim_loss
+        elif mode == "finetune":
+            return self.weight * ap + (1 - self.weight) * sim_loss
+        else:
+            raise ValueError(f"Unknow mode {mode}")

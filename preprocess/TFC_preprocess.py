@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
-from numpy.fft import fft
+from numpy.fft import fft, rfft
 from utils.augmentations import *
 from scipy import signal as scisig
 from torch.utils.data import Dataset
@@ -8,7 +10,7 @@ from tqdm import tqdm
 
 class AugmentBank:
     def __init__(self, wl):
-        self.fns = [jitter, scaling, shuffle_channels, neighboring_segment, reverse]
+        self.fns = [jitter, scaling, shuffle_channels, permute]
         self.wl = wl
 
     def __call__(self, x_t1, x_t2):
@@ -22,6 +24,7 @@ class AugmentBank:
 def generate_augment_pairs(sigs, labs, config):
     wl = config.window_length
     seg = config.window_length + config.window_padding
+    step = config.window_step
     threshold = config.threshold
     classes = config.classes
 
@@ -46,7 +49,22 @@ def generate_augment_pairs(sigs, labs, config):
                     y = mapping[y]
                     x_t1 = sig[:, lf:rg1]
                     x_t2 = sig[:, lf:rg2]
+
+                    spectrum = np.fft.rfft(x_t1, axis=-1) / wl
+
                     x_f = np.abs(fft(x_t1, axis=-1))
+                    magnitude = np.abs(spectrum)[..., :-1]
+                    phase = np.abs(np.angle(spectrum)[..., :-1])
+                    # plt.subplot(2, 1, 1)
+                    # plt.plot(magnitude[0, ...])
+                    # plt.subplot(2, 1, 2)
+                    # plt.plot(phase[0, ...])
+                    # plt.show()
+
+                    x_f = np.concatenate(
+                        [magnitude, phase],
+                        axis=-1,
+                    )
 
                     aug_t = time_augment(x_t1, x_t2)
                     aug_f = frequency_masking(x_f)
@@ -58,9 +76,9 @@ def generate_augment_pairs(sigs, labs, config):
                     y = torch.tensor(y, dtype=torch.int64)
 
                     pairs.append((x_t1, x_f, aug_t, aug_f, y))
-            lf += seg
-            rg1 += seg
-            rg2 += seg
+            lf += step
+            rg1 += step
+            rg2 += step
 
     return pairs
 

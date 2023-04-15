@@ -8,8 +8,17 @@ import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 from lightning.pytorch import seed_everything
+from shutil import copyfile
+from preprocess.TFC_preprocess import TFCDataset
 
 # Initialization
+config_dir = "configs/TFC_configs.py"
+preprocess_dir = "preprocess/TFC_preprocess.py"
+# config_dir = r"test_run/version_23/TFC_configs.py"
+import_path = ".".join(config_dir.split(".")[0].split("/"))
+print(f"from {import_path} import Configs")
+exec(f"from {import_path} import Configs")
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":
     torch.set_float32_matmul_precision('medium')
@@ -18,20 +27,19 @@ seed_everything(configs.training_config.seed)
 for fn in configs.training_config.bag_of_metrics.values():
     fn.to(device)
 
-
-emg_gesture_dataset = EMGGestureDataModule(configs.dataset_config)
+emg_gesture_dataset = EMGGestureDataModule(TFCDataset, configs.dataset_config)
 emg_gesture_dataset.prepare_data()
 
 lit_TFC_encoder = LitTFCEncoder(configs)
 
 logger = TensorBoardLogger(
-    save_dir="",
-    name="test_run"
+    save_dir=configs.training_config.log_save_dir,
+    name=configs.training_config.experiment_name,
 )
 
 pretrain_loop = pl.Trainer(
     deterministic=False,
-    max_epochs=3,
+    max_epochs=configs.training_config.pretrain_epoch,
     precision="16-mixed",
     logger=logger,
     log_every_n_steps=1,
@@ -45,6 +53,13 @@ pretrain_loop.fit(
     val_dataloaders=emg_gesture_dataset.val_dataloader(),
 )
 
+config_save_dir = os.path.join(logger.log_dir, config_dir.split("/")[1])
+print(f"Saving config file at {config_save_dir}")
+print(copyfile(config_dir, config_save_dir))
+preprocess_save_dir = os.path.join(logger.log_dir, preprocess_dir.split("/")[1])
+print(f"Saving preprocess file at {preprocess_save_dir}")
+print(copyfile(preprocess_dir, preprocess_save_dir))
+
 ckpt_path = os.path.join(logger.log_dir, "checkpoints")
 if os.path.exists(ckpt_path):
     pretrained_model_path = os.path.join(ckpt_path, os.listdir(ckpt_path)[0])
@@ -55,28 +70,29 @@ lit_TFC = LitTFC(pretrained_model_path, configs)
 
 finetune_loop = pl.Trainer(
     deterministic=False,
-    max_epochs=100,
+    max_epochs=configs.training_config.finetune_epoch,
     precision="16-mixed",
     logger=logger,
     log_every_n_steps=1,
-    enable_checkpointing=False
+    enable_checkpointing=False,
+    limit_train_batches=1.0,
 )
 
 finetune_loop.fit(
     model=lit_TFC,
-    train_dataloaders=emg_gesture_dataset.val_dataloader()
+    train_dataloaders=emg_gesture_dataset.val_dataloader(),
 )
 
 emg_gesture_dataset.setup("test")
 
 finetune_loop.test(
     model=lit_TFC,
-    dataloaders=emg_gesture_dataset.val_dataloader()
+    dataloaders=emg_gesture_dataset.test_dataloader(),
 )
 
 baseline_model = RandomForestClassifier(n_estimators=20, max_depth=30)
 get_baseline_performance(
     model=baseline_model,
-    train_loader=emg_gesture_dataset.train_dataloader(),
+    train_loader=emg_gesture_dataset.val_dataloader(),
     test_loader=emg_gesture_dataset.test_dataloader(),
 )

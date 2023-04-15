@@ -1,8 +1,10 @@
 import numpy as np
+from configs.TFC_configs import Configs
+
 
 
 # Temporal data format (Batch, Channel, Time)
-
+config = Configs().dataset_config
 def reshape(fn):
     def wrapper(signals, *args, **kwargs):
         assert isinstance(signals, np.ndarray)
@@ -18,18 +20,17 @@ def reshape(fn):
 # Time Series Augmentation
 
 @reshape
-def jitter(signals, scale=None):
+def jitter(signals, ratio=config.jitter_ratio):
     # step-wise
-    if not scale:
-        scale = np.broadcast_to(0.1 * np.abs(np.amax(signals, axis=-1, keepdims=True)), signals.shape)
+    scale = np.broadcast_to(ratio * np.abs(np.amax(signals, axis=-1, keepdims=True)), signals.shape)
     noise = np.random.normal(loc=0, scale=scale, size=signals.shape)
     return signals + noise
 
 
 @reshape
-def scaling(signals, scale=0.1):
+def scaling(signals, ratio=config.scaling_ratio):
     # instance-wise
-    factor = np.broadcast_to(np.random.normal(loc=1, scale=scale, size=(signals.shape[0], 1, 1)), signals.shape)
+    factor = np.broadcast_to(np.random.normal(loc=1, scale=ratio, size=(signals.shape[0], 1, 1)), signals.shape)
     return signals * factor
 
 
@@ -46,7 +47,7 @@ def neighboring_segment(signals, window_length):
 
 
 @reshape
-def permute(signals, num_seg=8):
+def permute(signals, num_seg=config.num_permute):
     # instance-wise
     span = signals.shape[-1]
     num_seg = np.random.randint(2, min(num_seg, span) + 1, size=signals.shape[0])
@@ -72,7 +73,7 @@ def reverse(signals):
 # Frequency Spectrum Augmentation
 
 @reshape
-def frequency_masking(spectrums, ratio=0.05, damp=0.5):
+def frequency_masking(spectrums, ratio=config.frequency_masking_ratio, damp=config.frequency_masking_damp):
     # step-wise
     remove_mask = np.random.rand(*spectrums.shape) >= ratio
     add_mask = np.random.rand(*spectrums.shape) <= ratio
