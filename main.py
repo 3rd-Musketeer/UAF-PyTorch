@@ -45,7 +45,7 @@ pretrain_loop = pl.Trainer(
     log_every_n_steps=1,
 )
 
-emg_gesture_dataset.setup("fit")
+emg_gesture_dataset.setup("pretrain")
 
 pretrain_loop.fit(
     model=lit_TFC_encoder,
@@ -83,7 +83,7 @@ finetune_loop.fit(
     train_dataloaders=emg_gesture_dataset.val_dataloader(),
 )
 
-emg_gesture_dataset.setup("test")
+emg_gesture_dataset.setup("finetune")
 
 finetune_loop.test(
     model=lit_TFC,

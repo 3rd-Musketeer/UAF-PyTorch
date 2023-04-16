@@ -15,13 +15,31 @@ def dataloader_to_list(dataloader):
     return samples.reshape(samples.shape[0], -1), labels.reshape(labels.shape[0])
 
 
+def dataset_to_list(dataset):
+    samples = []
+    labels = []
+    for batch in dataset:
+        x, y = batch[0], batch[-1]
+        samples.append(np.array(x[None, ...]))
+        labels.append(np.array(y[None, ...]))
+
+    samples = np.stack(samples, axis=0)
+    labels = np.stack(labels, axis=0)
+    return samples.reshape(samples.shape[0], -1), labels.reshape(labels.shape[0])
+
+
 def get_baseline_performance(
         model,
-        train_loader,
-        test_loader,
+        train_data,
+        test_data,
+        dataset=True,
 ):
-    train_X, train_Y = dataloader_to_list(train_loader)
-    test_X, test_Y = dataloader_to_list(test_loader)
+    if dataset:
+        fn = dataset_to_list
+    else:
+        fn = dataloader_to_list
+    train_X, train_Y = fn(train_data)
+    test_X, test_Y = fn(test_data)
 
     model.fit(train_X, train_Y)
     print(

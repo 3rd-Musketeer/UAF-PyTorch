@@ -32,12 +32,7 @@ class TS2Vec:
 
         super().__init__()
         self.temporal_unit = temporal_unit
-        self._net = TSEncoder(input_dims=input_dims, output_dims=output_dims, hidden_dims=hidden_dims, depth=depth)
-        self.net = torch.optim.swa_utils.AveragedModel(self._net)
-        self.net.update_parameters(self._net)
-
-    def get_net(self):
-        return self._net
+        self.net = TSEncoder(input_dims=input_dims, output_dims=output_dims, hidden_dims=hidden_dims, depth=depth)
 
     def eval_with_pooling(self, x, mask=None, slicing=None, encoding_window=None):
         out = self.net(x, mask)

@@ -32,17 +32,10 @@ def generate_augment_pairs(sigs, labs, config):
                 y = np.argmax(np.bincount(y))
                 if y in classes:
                     y = mapping[y]
-                    x = sig[:, lf:rg]
-
-                    weak_aug = scaling(jitter(x))
-                    strong_aug = jitter(permute(x))
-
+                    x = sig[:, lf:rg].swapaxes(0, 1)
                     x = torch.tensor(x, dtype=torch.float32)
-                    weak_aug = torch.tensor(weak_aug, dtype=torch.float32)
-                    strong_aug = torch.tensor(strong_aug, dtype=torch.float32)
                     y = torch.tensor(y, dtype=torch.int64)
-
-                    pairs.append((x, weak_aug, strong_aug, y))
+                    pairs.append((x, y))
             lf += step
             rg += step
 
@@ -55,7 +48,7 @@ def preprocess(data_dir, config):
     return augmented_pairs
 
 
-class TSTCCDataset(Dataset):
+class TS2VecDataset(Dataset):
     def __init__(self, data_dir, config, mode=None, sampler=None):
         self.data = preprocess(data_dir, config)
         if sampler:

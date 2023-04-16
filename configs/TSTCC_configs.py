@@ -22,7 +22,7 @@ class EMGGestureConfig:
         self.classes = [1, 2, 3, 4, 5, 6]
         self.window_length = 512
         self.window_padding = 32
-        self.window_step = 256
+        self.window_step = 128
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)
@@ -44,12 +44,16 @@ class ModelConfig:
 
         self.num_classes = dataset_config.num_classes
         self.dropout = 0.35
-        self.features_len = self.span // 8
+        self.conv_output_dim = self.span // 8
+        self.feature_len = 256
 
         self.hidden_dim = 100
         self.timesteps = 6
 
         self.loss_temperature = 0.2
+
+        self.classifier_hidden = [512, 256, self.num_classes]
+        self.classifier_dropout = 0.15
 
 
 class TrainingConfig:
@@ -86,9 +90,14 @@ class TrainingConfig:
 
         self.mode = "pretrain_finetune"
 
-        self.seed = 114514
-        self.pretrain_epoch = 0
-        self.finetune_epoch = 40
+        self.seed = 42
+        self.pretrain_epoch = 40
+        self.finetune_epoch = 100
 
         self.lr = 3e-4
+
+        self.classifier_lr = 1e-4
+        self.classifier_weight_decay = 3e-3
+
+        self.per_class_samples = 100
 

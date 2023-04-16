@@ -1,23 +1,20 @@
 import os
 from models.baselines.ML_baselines import get_baseline_performance
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
 from dataset.EMG_Gesture_v1 import EMGGestureDataModule
-from models.TSTCC.lit_model import LitTSTCC
-from configs.TSTCC_configs import Configs
+from models.TS2Vec.lit_model import LitTS2Vec
+from configs.TS2Vec_configs import Configs
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
 from lightning.pytorch import seed_everything
 from shutil import copyfile
-from preprocess.TSTCC_preprocess import TSTCCDataset
+from preprocess.TS2Vec_preprocess import TS2VecDataset
 from utils.sampler import PerClassSampler
 
 # Initialization
-config_dir = "configs/TSTCC_configs.py"
-preprocess_dir = "preprocess/TSTCC_preprocess.py"
+config_dir = "configs/TS2Vec_configs.py"
+preprocess_dir = "preprocess/TS2Vec_preprocess.py"
 # config_dir = r"test_run/version_23/TFC_configs.py"
 import_path = ".".join(config_dir.split(".")[0].split("/"))
 print(f"from {import_path} import Configs")
@@ -37,13 +34,13 @@ sampler = PerClassSampler(
     num_classes=configs.dataset_config.num_classes
 )
 emg_gesture_dataset = EMGGestureDataModule(
-    dataset_type=TSTCCDataset,
+    dataset_type=TS2VecDataset,
     config=configs.dataset_config,
     sampler=sampler,
 )
 emg_gesture_dataset.prepare_data()
 
-lit_TSTCC = LitTSTCC(configs)
+lit_TS2Vec = LitTS2Vec(configs)
 
 logger = TensorBoardLogger(
     save_dir=configs.training_config.log_save_dir,
@@ -51,7 +48,7 @@ logger = TensorBoardLogger(
 )
 
 if "pretrain" in configs.training_config.mode:
-    lit_TSTCC.pretrain()
+    lit_TS2Vec.pretrain()
     pretrain_loop = pl.Trainer(
         deterministic=False,
         max_epochs=configs.training_config.pretrain_epoch,
@@ -63,15 +60,12 @@ if "pretrain" in configs.training_config.mode:
     emg_gesture_dataset.setup("pretrain")
 
     pretrain_loop.fit(
-        model=lit_TSTCC,
+        model=lit_TS2Vec,
         train_dataloaders=emg_gesture_dataset.dataloader(),
     )
 
-if "freeze" in configs.training_config.mode:
-    lit_TSTCC.freeze_encoder()
-
 if "finetune" in configs.training_config.mode:
-    lit_TSTCC.finetune()
+    lit_TS2Vec.finetune()
     finetune_loop = pl.Trainer(
         deterministic=False,
         max_epochs=configs.training_config.finetune_epoch,
@@ -84,18 +78,18 @@ if "finetune" in configs.training_config.mode:
     emg_gesture_dataset.setup("finetune_train")
 
     finetune_loop.fit(
-        model=lit_TSTCC,
+        model=lit_TS2Vec,
         train_dataloaders=emg_gesture_dataset.dataloader(),
     )
 
     emg_gesture_dataset.setup("finetune_test")
 
     finetune_loop.test(
-        model=lit_TSTCC,
+        model=lit_TS2Vec,
         dataloaders=emg_gesture_dataset.dataloader(),
     )
 
-baseline_model = DecisionTreeClassifier()
+baseline_model = RandomForestClassifier(n_estimators=20, max_depth=30)
 
 finetune_dataset = emg_gesture_dataset.current_set
 train_data = finetune_dataset.sampled_set

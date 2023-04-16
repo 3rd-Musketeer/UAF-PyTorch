@@ -15,7 +15,7 @@ class EMGGestureConfig:
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 256
-        self.partition = [0.4, 0.4, 0.2]
+        self.partition = [0.8, 0, 0.2]
 
         self.sampling_freq = 1000
         self.pass_band = 200
@@ -38,13 +38,17 @@ class ModelConfig:
     def __init__(self, dataset_config: EMGGestureConfig):
         # (B, C, T)
         self.span = dataset_config.window_length  # keeping up with window length
+        self.num_classes = dataset_config.num_classes
 
         self.max_train_length = 3000
-        self.repr_dims = 320
+        self.repr_dims = 512
         self.temporal_unit = 0
         self.hidden_dims = 64
         self.encoder_depth = 10
         self.encoding_window = "full_series"
+
+        self.classifier_hidden = [128, self.num_classes]
+        self.classifier_dropout = 0
 
 
 class TrainingConfig:
@@ -80,15 +84,12 @@ class TrainingConfig:
         self.experiment_name = "test_phase"
 
         self.seed = 315
-        self.pretrain_epoch = 5
-        self.finetune_epoch = 70
+        self.pretrain_epoch = 0
+        self.finetune_epoch = 100
 
-        self.encoder_plr = 1e-4
-        self.encoder_flr = 1e-5
+        self.pretrain_lr = 1e-4
         self.classifier_lr = 1e-3
-        self.encoder_weight_decay = 3e-5
-        self.classifier_weight_decay = 1e-5
-        self.classifier_lrs_factor = 0.1
-        self.classifier_lrs_cooldown = 5
-        self.classifier_lrs_patience = 10
-        self.classifier_lrs_minlr = self.classifier_lr * 1e-3
+
+        self.mode = "pretrain_finetune"
+
+        self.per_class_samples = 0.8

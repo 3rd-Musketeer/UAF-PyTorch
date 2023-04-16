@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 from models.TSTCC import attention
-import configs
+
 
 class TC(nn.Module):
-    def __init__(self, configs: configs.TSTCC_configs.ModelConfig):
+    def __init__(self, configs):
         super(TC, self).__init__()
         self.num_channels = configs.final_out_channels
         self.timestep = configs.timesteps

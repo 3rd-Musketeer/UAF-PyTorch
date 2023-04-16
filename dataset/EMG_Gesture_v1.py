@@ -53,11 +53,13 @@ class EMGGestureDataModule(pl.LightningDataModule):
             self,
             dataset_type,
             config: EMGGestureConfig,
+            sampler=None,
     ):
         super(EMGGestureDataModule, self).__init__()
         self.dataset_type = dataset_type
         self.config = config
         self.similarity_check = ["partition", "sampling_freq", "pass_band"]
+        self.sampler = sampler
 
     def prepare_data(self) -> None:
         # download dataset
@@ -106,50 +108,32 @@ class EMGGestureDataModule(pl.LightningDataModule):
             test_sig, test_lab = extract_raw_data(test_files)
             torch.save({"sig": test_sig, "lab": test_lab}, path)
 
-    def setup(self, stage, sampler=None):
+        self.pretrain_set = self.dataset_type(
+            os.path.join(self.config.save_dir, "train_set.pt"),
+            self.config,
+        )
+
+        self.finetune_set = self.dataset_type(
+            os.path.join(self.config.save_dir, "test_set.pt"),
+            self.config,
+            sampler=self.sampler,
+        )
+
+    def setup(self, stage):
         if stage == "pretrain":
-            self.train_set = self.dataset_type(
-                os.path.join(self.config.save_dir, "train_set.pt"),
-                self.config,
-                sampler=sampler,
-            )
-            self.val_set = self.dataset_type(
-                os.path.join(self.config.save_dir, "val_set.pt"),
-                self.config,
-                sampler=sampler,
+            self.current_set = self.pretrain_set
+        elif stage == "finetune_train":
+            self.finetune_set.train()
+            self.current_set = self.finetune_set
+        elif stage == "finetune_test":
+            self.finetune_set.test()
+            self.current_set = self.finetune_set
+        else:
+            raise NameError(f"Invalid stage {stage}")
 
-            )
-        elif stage == "finetune":
-            self.test_set = self.dataset_type(
-                os.path.join(self.config.save_dir, "test_set.pt"),
-                self.config,
-                sampler=sampler,
-            )
-
-    def train_dataloader(self, sampler=None):
+    def dataloader(self):
         return DataLoader(
-            self.train_set,
-            batch_size=self.config.batch_size,
-            shuffle=True,
-        )
-
-    def val_dataloader(self, sampler=None):
-        return DataLoader(
-            self.val_set,
-            batch_size=self.config.batch_size,
-            shuffle=True,
-        )
-
-    def test_dataloader(self, sampler=None):
-        return DataLoader(
-            self.test_set,
-            batch_size=self.config.batch_size,
-            shuffle=True,
-        )
-
-    def predict_dataloader(self, sampler=None):
-        return DataLoader(
-            self.test_set,
+            self.current_set,
             batch_size=self.config.batch_size,
             shuffle=True,
         )

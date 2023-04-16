@@ -9,7 +9,7 @@ from models.TS2Vec.utils import take_per_row
 from models.TS2Vec.losses import hierarchical_contrastive_loss
 
 
-class Lit_TS2Vec(pl.LightningModule):
+class LitTS2Vec(pl.LightningModule):
     def __init__(self, config: configs.TS2Vec_configs.Configs):
         super().__init__()
 
@@ -21,11 +21,9 @@ class Lit_TS2Vec(pl.LightningModule):
             hidden_dims=config.model_config.hidden_dims,
             depth=config.model_config.encoder_depth,
         )
-        self._net = self.encoder.get_net()
         self.net = self.encoder.net
-
         self.classifier = MLP(
-            in_channels=config.model_config.projector_hidden[-1] * 2,
+            in_channels=config.model_config.repr_dims,
             hidden_channels=config.model_config.classifier_hidden,
             norm_layer=nn.BatchNorm1d,
             activation_layer=nn.ReLU,
@@ -45,13 +43,13 @@ class Lit_TS2Vec(pl.LightningModule):
         self.mode = "finetune"
 
     def configure_optimizers(self):
-        encoder_optimizer = torch.optim.AdamW(
-            self.encoder.get_net().parameters(),
+        encoder_optimizer = torch.optim.Adam(
+            self.encoder.net.parameters(),
             lr=self.config.training_config.pretrain_lr,
         )
 
         classifier_optimizer = torch.optim.Adam(
-            self.classifier.paramerers(),
+            self.classifier.parameters(),
             lr=self.config.training_config.classifier_lr,
         )
 
@@ -81,50 +79,52 @@ class Lit_TS2Vec(pl.LightningModule):
         crop_eright = np.random.randint(low=crop_right, high=ts_l + 1)
         crop_offset = np.random.randint(low=-crop_eleft, high=ts_l - crop_eright + 1, size=x.size(0))
 
-        out1 = self._net(take_per_row(x, crop_offset + crop_eleft, crop_right - crop_eleft))
+        out1 = self.net(take_per_row(x, crop_offset + crop_eleft, crop_right - crop_eleft))
         out1 = out1[:, -crop_l:]
 
-        out2 = self._net(take_per_row(x, crop_offset + crop_left, crop_eright - crop_left))
+        out2 = self.net(take_per_row(x, crop_offset + crop_left, crop_eright - crop_left))
         out2 = out2[:, :crop_l]
 
         loss = hierarchical_contrastive_loss(
             out1,
             out2,
-            temporal_unit=self.temporal_unit
+            temporal_unit=self.config.model_config.temporal_unit
         )
 
-        self.manual_optimize(loss, self.mode)
+        self.log("pretrain_loss", loss, on_epoch=True, prog_bar=True)
 
-        self.net.update_parameters(self._net)
+        self.manual_optimize(loss)
 
         return loss
 
-    def finetune_loop(self, batch):
+    def finetune_loop(self, batch, mode):
         x, y = batch
         out = self.encoder.eval_with_pooling(
             x,
             encoding_window=self.config.model_config.encoding_window,
         )
         repr = out.reshape(x.shape[0], -1)
-
         logits = self.classifier(repr)
-
         loss = self.loss(logits, y)
-
-        self.manual_optimize(loss)
-
+        self.log(f"finetune_{mode}_loss", loss, on_epoch=True, prog_bar=True)
+        metrics = {}
+        for name, fn in self.config.training_config.bag_of_metrics.items():
+            metrics[f"finetune_{mode}_{name}"] = fn(logits, y)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True)
+        if mode == "train":
+            self.manual_optimize(loss)
         return loss
 
     def training_step(self, batch, idx):
         if self.mode == "pretrain":
             return self.pretrain_loop(batch)
         elif self.mode == "finetune":
-            return self.finetune_loop(batch)
+            return self.finetune_loop(batch, "train")
         else:
-            raise ValueError(f"Known training mode {self.mode}")
+            raise ValueError(f"Unknown training mode {self.mode}")
 
     def validation_step(self, batch, idx):
-        pass
+        return self.finetune_loop(batch, "val")
 
     def test_step(self, batch, idx):
-        pass
+        return self.finetune_loop(batch, "test")

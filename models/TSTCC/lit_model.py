@@ -5,6 +5,7 @@ import lightning.pytorch as pl
 from utils.loss import NTXentLoss
 from models.TSTCC.model import base_Model
 from models.TSTCC.TC import TC
+from torchvision.ops.misc import MLP
 
 ########################################################################################
 import configs.TSTCC_configs
@@ -19,6 +20,14 @@ class LitTSTCC(pl.LightningModule):
         self.automatic_optimization = False
         self.model = base_Model(config.model_config)
         self.temporal_contr_model = TC(config.model_config)
+        self.classifier = MLP(
+            in_channels=config.model_config.feature_len,
+            hidden_channels=config.model_config.classifier_hidden,
+            norm_layer=nn.BatchNorm1d,
+            activation_layer=nn.ReLU,
+            bias=True,
+            dropout=config.model_config.classifier_dropout,
+        )
         self.contrast_loss = NTXentLoss(config.model_config.loss_temperature)
         self.loss = nn.CrossEntropyLoss()
         self.mode = None
@@ -60,21 +69,30 @@ class LitTSTCC(pl.LightningModule):
         temporal_contr_optimizer = torch.optim.Adam(
             self.temporal_contr_model.parameters(),
             lr=self.config.training_config.lr,
-            weight_decay=3e-4
+            weight_decay=3e-4,
         )
 
-        return [model_optimizer, temporal_contr_optimizer]
+        classifier_optimizer = torch.optim.Adam(
+            self.classifier.parameters(),
+            lr=self.config.training_config.classifier_lr,
+            weight_decay=self.config.training_config.classifier_weight_decay,
+        )
+
+        return [model_optimizer, temporal_contr_optimizer, classifier_optimizer]
 
     def manual_optimize(self, loss, mode):
-        model_optimizer, temporal_contr_optimizer = self.optimizers()
+        model_optimizer, temporal_contr_optimizer, classifier_optimizer = self.optimizers()
 
         model_optimizer.zero_grad()
+        classifier_optimizer.zero_grad()
         if mode == "pretrain":
             temporal_contr_optimizer.zero_grad()
 
         self.manual_backward(loss)
 
         model_optimizer.step()
+        if mode == "finetune":
+            classifier_optimizer.step()
         if mode == "pretrain":
             temporal_contr_optimizer.step()
 
@@ -103,20 +121,27 @@ class LitTSTCC(pl.LightningModule):
             lambda2 = 0.7
             loss = (temp_cont_loss1 + temp_cont_loss2) * lambda1 + self.contrast_loss(zis, zjs) * lambda2
         elif mode == "finetune":  # supervised training or fine-tuning
-            predictions, _ = output
+            features, _ = output
             # target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
+            predictions = self.classifier(features)
             loss = self.loss(predictions, y)
+
+            metrics = {}
+            for name, fn in self.config.training_config.bag_of_metrics.items():
+                metrics[f"finetune_{name}"] = fn(predictions, y)
+            self.log_dict(metrics, on_epoch=True, prog_bar=True)
         else:
             raise ValueError(f"Unknown mode \"{mode}\"")
 
-        self.log("loss", loss, prog_bar=True, on_epoch=True)
+        self.log(f"{mode}_loss", loss, prog_bar=True, on_epoch=True)
         self.manual_optimize(loss, self.mode)
 
         return loss
 
     def predict_loop(self, batch, idx):
         x, _, _, y = batch
-        predictions, features = self.model(x)
+        features, _ = self.model(x)
+        predictions = self.classifier(features)
         # target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)
         loss = self.loss(predictions, y)
 

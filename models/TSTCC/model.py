@@ -28,8 +28,8 @@ class base_Model(nn.Module):
             nn.MaxPool1d(kernel_size=2, stride=2, padding=0),
         )
 
-        model_output_dim = configs.features_len
-        self.logits = nn.Linear(model_output_dim * configs.final_out_channels, configs.num_classes)
+        model_output_dim = configs.conv_output_dim
+        self.logits = nn.Linear(model_output_dim * configs.final_out_channels, configs.feature_len)
 
     def forward(self, x_in):
         x = self.conv_block1(x_in)
@@ -37,5 +37,5 @@ class base_Model(nn.Module):
         x = self.conv_block3(x)
 
         x_flat = x.reshape(x.shape[0], -1)
-        logits = self.logits(x_flat)
-        return logits, x
+        features = self.logits(x_flat)
+        return features, x
