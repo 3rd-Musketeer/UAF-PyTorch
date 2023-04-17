@@ -13,6 +13,7 @@ class EMGGestureConfig:
     def __init__(self):
         self.url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"
         self.save_dir = "dataset/EMGGesture"
+        self.random_seed = 42
 
         self.batch_size = 128
         self.partition = [0.8, 0., 0.2]

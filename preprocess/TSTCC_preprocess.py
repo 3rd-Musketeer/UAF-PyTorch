@@ -49,40 +49,6 @@ def generate_augment_pairs(sigs, labs, config):
     return pairs
 
 
-def preprocess(data_dir, config):
-    data_dict = torch.load(data_dir)
-    augmented_pairs = generate_augment_pairs(data_dict["sig"], data_dict["lab"], config)
+def preprocess(data_dict, config):
+    augmented_pairs = generate_augment_pairs(data_dict["signal"], data_dict["label"], config)
     return augmented_pairs
-
-
-class TSTCCDataset(Dataset):
-    def __init__(self, data_dir, config, mode=None, sampler=None):
-        self.data = preprocess(data_dir, config)
-        if sampler:
-            self.sampled_set, self.remaining_set = sampler(self.data)
-        self.mode = None
-
-    def __getitem__(self, index):
-        if self.mode == "train":
-            return self.sampled_set[index]
-        elif self.mode == "test":
-            return self.remaining_set[index]
-        else:
-            return self.data[index]
-
-    def __len__(self):
-        if self.mode == "train":
-            return len(self.sampled_set)
-        elif self.mode == "test":
-            return len(self.remaining_set)
-        else:
-            return len(self.data)
-
-    def train(self):
-        self.mode = "train"
-
-    def test(self):
-        self.mode = "test"
-
-    def all(self):
-        self.mode = "all"
