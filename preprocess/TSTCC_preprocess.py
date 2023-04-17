@@ -13,18 +13,19 @@ def generate_augment_pairs(sigs, labs, config):
     step = config.window_step
     threshold = config.threshold
     classes = config.classes
-
-    sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
-    filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
+    if config.pass_band:
+        sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
+        filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
 
     pairs = []
     mapping = {}
     for i, c in enumerate(classes):
         mapping[c] = i
     for sig, lab in tqdm(zip(sigs, labs), desc="Generating pairs"):
-        assert sig.ndim == 2, "(C, T)"
-        assert lab.ndim == 1, "(T)"
-        sig = filter(sig)
+        assert sig.ndim == 2, f"(C, T) {sig.shape}"
+        assert lab.ndim == 1, f"(T) {lab.shape}"
+        if config.pass_band:
+            sig = filter(sig)
         lf, rg = 0, wl
         while rg < sig.shape[-1]:
             y = lab[lf:rg]

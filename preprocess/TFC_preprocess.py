@@ -27,9 +27,9 @@ def generate_augment_pairs(sigs, labs, config):
     step = config.window_step
     threshold = config.threshold
     classes = config.classes
-
-    sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
-    filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
+    if config.pass_band:
+        sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
+        filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
     time_augment = AugmentBank(wl)
 
     pairs = []
@@ -39,7 +39,8 @@ def generate_augment_pairs(sigs, labs, config):
     for sig, lab in tqdm(zip(sigs, labs), desc="Generating pairs"):
         assert sig.ndim == 2, "(C, T)"
         assert lab.ndim == 1, "(T)"
-        sig = filter(sig)
+        if config.pass_band:
+            sig = filter(sig)
         lf, rg1, rg2 = 0, wl, seg
         while rg2 < sig.shape[-1]:
             y = lab[lf:rg1]

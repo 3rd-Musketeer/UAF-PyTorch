@@ -11,7 +11,7 @@ class Configs:
 
 class EMGGestureConfig:
     def __init__(self):
-        self.url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"
+        self.urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"]
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 256

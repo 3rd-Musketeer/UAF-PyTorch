@@ -1,9 +1,9 @@
 import os
 import lightning.pytorch as pl
-from configs.TFC_configs import EMGGestureConfig
+from configs.TSTCC_configs import NinaproDB5Config
 from utils.download import download
 import zipfile
-import pandas as pd
+import scipy.io as scio
 import numpy as np
 from torch.utils.data import DataLoader
 import torch
@@ -25,7 +25,7 @@ def get_file_dirs(path, partition):
         for p in path:
             for f in os.listdir(p):
                 fd = os.path.join(p, f)
-                if os.path.isfile(fd) and '.txt' in f:
+                if os.path.isfile(fd) and '.mat' in f and 'E2' in f:
                     files.append(fd)
         return files
 
@@ -40,37 +40,37 @@ def extract_raw_data(file_paths):
     sig_sequences = []
     lab_sequences = []
     for fp in file_paths:
-        doc = pd.read_csv(fp, sep='\t').values.swapaxes(0, 1)
-        signal = np.array(doc[1: 9]).astype('float32')
-        label = np.array(doc[9]).astype('uint8')
+        matfile = scio.loadmat(fp)
+        signal = np.array(matfile["emg"][..., :8].swapaxes(0, 1), dtype="float32")
+        label = np.array(matfile["restimulus"], dtype="uint8").squeeze(-1)
         sig_sequences.append(signal)
         lab_sequences.append(label)
     return sig_sequences, lab_sequences
 
 
-class EMGGestureDataModule(pl.LightningDataModule):
+class NinaproDB5DataModule(pl.LightningDataModule):
     def __init__(
             self,
             dataset_type,
-            config: EMGGestureConfig,
+            config: NinaproDB5Config,
     ):
-        super(EMGGestureDataModule, self).__init__()
+        super().__init__()
         self.dataset_type = dataset_type
         self.config = config
         self.similarity_check = ["partition", "sampling_freq", "pass_band"]
 
-    def prepare_data(self) -> None:
+    def prepare_data(self, auto_download_and_zip=False) -> None:
         # download dataset
-        file_name = os.path.split(self.config.url)[1]
-        dir_name = file_name.split(".")[0]
-        target_dir = os.path.join(self.config.save_dir, dir_name)
         if not os.path.exists(self.config.save_dir):
             os.mkdir(self.config.save_dir)
-            for url in self.config.urls:
-                file_dir = download(url, self.config.save_dir)
-                if not os.path.exists(os.path.join(self.config.save_dir, dir_name)):
-                    with zipfile.ZipFile(file_dir, mode="r") as file:
-                        file.extractall(self.config.save_dir)
+            if auto_download_and_zip:
+                for url in self.config.urls:
+                    file_name = os.path.split(url)[-1]
+                    dir_name = os.path.join(self.config.save_dir, file_name)
+                    file_dir = download(url, self.config.save_dir)
+                    if not os.path.exists(os.path.join(self.config.save_dir, dir_name)):
+                        with zipfile.ZipFile(file_dir, mode="r") as file:
+                            file.extractall(self.config.save_dir)
 
         dataset_config = {
             itm: self.config.__getattribute__(itm) for itm in self.similarity_check
@@ -89,8 +89,8 @@ class EMGGestureDataModule(pl.LightningDataModule):
             similarity_flag = False
 
         if not similarity_flag:
-            train_files, val_files, test_files = get_file_dirs(target_dir, self.config.partition)
-            print("Regenerating cache dataset")
+            train_files, val_files, test_files = get_file_dirs(self.config.save_dir, self.config.partition)
+            print("Generating cache dataset")
             with open(jsfile_path, "w") as jsfile:
                 json.dump(dataset_config, jsfile)
             # preprocess dataset
@@ -118,3 +118,12 @@ class EMGGestureDataModule(pl.LightningDataModule):
             os.path.join(self.config.save_dir, "test_set.pt"),
             self.config,
         )
+
+def test():
+    from configs.TSTCC_configs import NinaproDB5Config
+    from preprocess.TSTCC_preprocess import TSTCCDataset
+    config = NinaproDB5Config()
+    ninapro_db5_dataset = NinaproDB5DataModule(config=config, dataset_type=TSTCCDataset)
+    ninapro_db5_dataset.prepare_data()
+    pretrain_dataset = ninapro_db5_dataset.pretrain_dataset()
+    finetune_dataset = ninapro_db5_dataset.finetune_dataset()

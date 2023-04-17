@@ -11,7 +11,7 @@ class Configs:
 
 class EMGGestureConfig:
     def __init__(self):
-        self.url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"
+        self.urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"]
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 256
@@ -32,7 +32,6 @@ class EMGGestureConfig:
         self.num_permute = 8
         self.frequency_masking_ratio = 0.01
         self.frequency_masking_damp = 0.5
-
 
 class ModelConfig:
     def __init__(self, dataset_config: EMGGestureConfig):

@@ -11,7 +11,7 @@ class Configs:
 
 class EMGGestureConfig:
     def __init__(self):
-        self.url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"
+        self.urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"]
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 128
@@ -30,6 +30,42 @@ class EMGGestureConfig:
         self.jitter_ratio = 0.1
         self.scaling_ratio = 0.1
         self.num_permute = 8
+
+
+class NinaproDB5Config:
+    def __init__(self):
+        self.urls = [
+            "http://ninapro.hevs.ch/download/file/fid/457",
+            "http://ninapro.hevs.ch/download/file/fid/458",
+            "http://ninapro.hevs.ch/download/file/fid/459",
+            "http://ninapro.hevs.ch/download/file/fid/467",
+            "http://ninapro.hevs.ch/download/file/fid/461",
+            "http://ninapro.hevs.ch/download/file/fid/462",
+            "http://ninapro.hevs.ch/download/file/fid/463",
+            "http://ninapro.hevs.ch/download/file/fid/464",
+            "http://ninapro.hevs.ch/download/file/fid/465",
+            "http://ninapro.hevs.ch/download/file/fid/466",
+        ]
+        self.save_dir = "dataset/Ninapro_DB5"
+
+        self.batch_size = 256
+        self.partition = [0.8, 0, 0.2]
+
+        self.sampling_freq = 200
+        self.pass_band = None
+        self.classes = [1, 2, 3, 4, 5, 6]
+        self.window_length = 512
+        self.window_padding = 32
+        self.window_step = 256
+        self.threshold = 0
+        self.channels = 8
+        self.num_classes = len(self.classes)
+
+        self.jitter_ratio = 0.1
+        self.scaling_ratio = 0.1
+        self.num_permute = 8
+        self.frequency_masking_ratio = 0.01
+        self.frequency_masking_damp = 0.5
 
 
 class ModelConfig:
@@ -100,4 +136,3 @@ class TrainingConfig:
         self.classifier_weight_decay = 3e-3
 
         self.per_class_samples = 100
-
