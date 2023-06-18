@@ -18,7 +18,6 @@ class MLPClassifier(nn.Module):
                                             nn.Dropout(dropout)
                                             ))
         self.model.append(output_layer)
-        self.model.append(nn.Softmax(dim=-1))
 
     def forward(self, x):
         x = x.to(torch.float32)

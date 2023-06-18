@@ -31,7 +31,7 @@ class LitTS2Vec(pl.LightningModule):
             dropout=config.model_config.classifier_dropout,
         )
 
-        self.mode = None
+        self.mode = "pretrain"
         self.config = config
 
         self.loss = nn.CrossEntropyLoss()

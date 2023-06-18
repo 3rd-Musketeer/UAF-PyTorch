@@ -1,5 +1,5 @@
 import os
-from models.baselines.ML_baselines import get_baseline_performance
+from models.baselines.ml_baselines import get_baseline_performance
 from sklearn.ensemble import RandomForestClassifier
 from dataset.EMG_Gesture_v1 import EMGGestureDataModule
 from models.TS2Vec.lit_model import LitTS2Vec

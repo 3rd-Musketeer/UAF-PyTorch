@@ -1,10 +1,10 @@
 import numpy as np
 from configs.TFC_configs import Configs
 
-
-
 # Temporal data format (Batch, Channel, Time)
 config = Configs().dataset_config
+
+
 def reshape(fn):
     def wrapper(signals, *args, **kwargs):
         assert isinstance(signals, np.ndarray)
@@ -35,8 +35,17 @@ def scaling(signals, ratio=config.scaling_ratio):
 
 
 @reshape
-def shuffle_channels(signals):
-    return np.apply_along_axis(np.random.permutation, axis=1, arr=signals)
+def permute_channels(signals):
+    # return np.apply_along_axis(np.random.permutation, axis=1, arr=signals)
+    # two_idx = np.random.choice(signals.shape[1], size=2)
+    # tmp = signals[:, two_idx[0], :]
+    # signals[:, two_idx[0], :] = signals[:, two_idx[1], :]
+    # signals[:, two_idx[1], :] = tmp
+    # shift_idx = np.random.randint(signals.shape[1], size=1)[0]
+    shift_idx = signals.shape[1] // 2
+    lf = signals[:, :shift_idx, :]
+    rg = signals[:, shift_idx:, :]
+    return np.concatenate([lf, rg], axis=1)
 
 
 @reshape

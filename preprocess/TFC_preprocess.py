@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 class AugmentBank:
     def __init__(self, wl):
-        self.fns = [jitter, scaling, shuffle_channels, permute]
+        self.fns = [jitter, scaling, permute]
         self.wl = wl
 
     def __call__(self, x_t1, x_t2):
@@ -21,7 +21,7 @@ class AugmentBank:
             return fn(x_t1)
 
 
-def generate_augment_pairs(sigs, labs, config):
+def generate_augment_pairs(sigs, labs, subs, config):
     wl = config.window_length
     seg = config.window_length + config.window_padding
     step = config.window_step
@@ -31,12 +31,12 @@ def generate_augment_pairs(sigs, labs, config):
         sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
         filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
     time_augment = AugmentBank(wl)
-
     pairs = []
     mapping = {}
     for i, c in enumerate(classes):
         mapping[c] = i
-    for sig, lab in tqdm(zip(sigs, labs), desc="Generating pairs"):
+    cl = []
+    for sig, lab, sub in tqdm(zip(sigs, labs, subs), desc="Generating pairs"):
         assert sig.ndim == 2, "(C, T)"
         assert lab.ndim == 1, "(T)"
         if config.pass_band:
@@ -54,18 +54,18 @@ def generate_augment_pairs(sigs, labs, config):
                     spectrum = np.fft.rfft(x_t1, axis=-1) / wl
 
                     x_f = np.abs(fft(x_t1, axis=-1))
-                    magnitude = np.abs(spectrum)[..., :-1]
-                    phase = np.abs(np.angle(spectrum)[..., :-1])
+                    # magnitude = np.abs(spectrum)[..., :-1]
+                    # phase = np.abs(np.angle(spectrum)[..., :-1])
                     # plt.subplot(2, 1, 1)
                     # plt.plot(magnitude[0, ...])
                     # plt.subplot(2, 1, 2)
                     # plt.plot(phase[0, ...])
                     # plt.show()
 
-                    x_f = np.concatenate(
-                        [magnitude, phase],
-                        axis=-1,
-                    )
+                    # x_f = np.concatenate(
+                    #     [magnitude, phase],
+                    #     axis=-1,
+                    # )
 
                     aug_t = time_augment(x_t1, x_t2)
                     aug_f = frequency_masking(x_f)
@@ -76,26 +76,32 @@ def generate_augment_pairs(sigs, labs, config):
                     aug_f = torch.tensor(aug_f, dtype=torch.float32)
                     y = torch.tensor(y, dtype=torch.int64)
 
-                    pairs.append((x_t1, x_f, aug_t, aug_f, y))
+                    cl.append(y)
+                    pairs.append((x_t1, x_f, aug_t, aug_f, sub, y))
             lf += step
             rg1 += step
             rg2 += step
-
+    print("Dataset Class count:", np.bincount(cl), "Sum: ", len(cl))
     return pairs
 
 
 def preprocess(data_dir, config):
     data_dict = torch.load(data_dir)
-    augmented_pairs = generate_augment_pairs(data_dict["sig"], data_dict["lab"], config)
+    augmented_pairs = generate_augment_pairs(
+        data_dict["sig"],
+        data_dict["lab"],
+        data_dict["sub"],
+        config,
+    )
     return augmented_pairs
 
 
 class TFCDataset(Dataset):
     def __init__(self, data_dir, config):
-        self.augmented_pairs = preprocess(data_dir, config)
+        self.dataset = preprocess(data_dir, config)
 
     def __getitem__(self, index):
-        return self.augmented_pairs[index]
+        return self.dataset[index]
 
     def __len__(self):
-        return len(self.augmented_pairs)
+        return len(self.dataset)

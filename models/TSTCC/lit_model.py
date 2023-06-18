@@ -97,7 +97,7 @@ class LitTSTCC(pl.LightningModule):
             temporal_contr_optimizer.step()
 
     def train_loop(self, batch, idx, mode):
-        x, weak_aug, strong_aug, y = batch
+        x, weak_aug, strong_aug, _, y = batch
         if mode == "pretrain":
             predictions1, features1 = self.model(weak_aug)
             predictions2, features2 = self.model(strong_aug)
@@ -139,7 +139,7 @@ class LitTSTCC(pl.LightningModule):
         return loss
 
     def predict_loop(self, batch, idx):
-        x, _, _, y = batch
+        x, _, _, _, y = batch
         features, _ = self.model(x)
         predictions = self.classifier(features)
         # target = F.one_hot(y, num_classes=self.config.dataset_config.num_classes)

@@ -1,14 +1,13 @@
 import os
-import shutil
 import sys
-from models.baselines.ml_baselines import get_baseline_performance
-from sklearn.ensemble import AdaBoostClassifier
+import shutil
+from models.baselines.run_baselines import get_baseline_performance
+from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from dataset.EMG_Gesture_v2 import EMGGestureDataModule
-from dataset.Ninapro_DB5 import NinaproDB5DataModule
-from models.TSTCC.lit_model import LitTSTCC
-from configs.TSTCC_configs import Configs
+from models.TimesNet.TimesNet import LitTimesNet
+from configs.FCNN_configs import Configs
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
 import torch
@@ -18,15 +17,16 @@ from preprocess.TSTCC_preprocess import TSTCCDataset
 from utils.sampler import split_dataset
 from utils.terminal_logger import TerminalLogger
 from torch.utils.data import DataLoader
+
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--per_class_samples", type=int, default=50)
-parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--per_class_samples", type=int, default=None)
+parser.add_argument("--seed", type=int, default=None)
 args = parser.parse_args()
 
 # Initialization
-config_dir = "configs/TSTCC_configs.py"
+config_dir = "configs/TimesNet_configs.py"
 preprocess_dir = "preprocess/TSTCC_preprocess.py"
 # config_dir = r"test_run/version_23/TFC_configs.py"
 import_path = ".".join(config_dir.split(".")[0].split("/"))
@@ -38,10 +38,13 @@ if device == "cuda":
     torch.set_float32_matmul_precision('medium')
 
 configs = Configs()
-configs.training_config.per_class_samples = args.per_class_samples
-configs.training_config.seed = args.seed
-configs.training_config.version = f"samples_{configs.training_config.per_class_samples}_pe_{configs.training_config.pretrain_epoch}_fe_{configs.training_config.finetune_epoch}_seed_{configs.training_config.seed}"
-
+if args.per_class_samples:
+    configs.training_config.per_class_samples = args.per_class_samples
+if args.seed:
+    configs.training_config.seed = args.seed
+configs.training_config.version = f"samples_{configs.training_config.per_class_samples}_" \
+                                  f"ep_{configs.training_config.epoch}_" \
+                                  f"seed_{configs.training_config.seed}"
 
 log_dir = os.path.join(
     configs.training_config.log_save_dir,
@@ -61,10 +64,6 @@ seed_everything(configs.training_config.seed)
 for fn in configs.training_config.bag_of_metrics.values():
     fn.to(device)
 
-# dataset = EMGGestureDataModule(
-#     dataset_type=TSTCCDataset,
-#     config=configs.dataset_config,
-# )
 dataset = EMGGestureDataModule(
     dataset_type=TSTCCDataset,
     config=configs.dataset_config,
@@ -86,84 +85,79 @@ finetune_val, finetune_test = split_dataset(
     shuffle=True,
 )
 
-lit_TSTCC = LitTSTCC(configs)
-
 logger = TensorBoardLogger(
     save_dir=configs.training_config.log_save_dir,
     name=configs.training_config.experiment_name,
     version=configs.training_config.version,
 )
 
-if "pretrain" in configs.training_config.mode:
-    lit_TSTCC.pretrain()
-    pretrain_loop = pl.Trainer(
-        deterministic=False,
-        max_epochs=configs.training_config.pretrain_epoch,
-        precision="16-mixed",
-        logger=logger,
-        log_every_n_steps=1,
+trainer = pl.Trainer(
+    max_epochs=configs.training_config.epoch,
+    precision="16-mixed",
+    logger=logger,
+)
+
+lit_TimesNet = LitTimesNet(configs)
+
+trainer.fit(
+    model=lit_TimesNet,
+    train_dataloaders=DataLoader(
+        dataset=pretrain_dataset,
+        batch_size=configs.dataset_config.batch_size,
+        shuffle=True,
     )
+)
 
-    pretrain_loop.fit(
-        model=lit_TSTCC,
-        train_dataloaders=DataLoader(
-            dataset=pretrain_dataset,
-            batch_size=configs.dataset_config.batch_size,
-            shuffle=True,
-            pin_memory=True,
+trainer.test(
+    model=lit_TimesNet,
+    dataloaders=DataLoader(
+        dataset=finetune_test,
+        batch_size=configs.dataset_config.batch_size,
+        shuffle=True,
+    ),
+)
 
-        ),
-    )
+# trainer = pl.Trainer(
+#     max_epochs=configs.training_config.epoch,
+#     precision="16-mixed",
+#     logger=logger,
+# )
+#
+# lit_FCNN = LitFCNN(configs)
+#
+# trainer.fit(
+#     model=lit_FCNN,
+#     train_dataloaders=DataLoader(
+#         dataset=finetune_train,
+#         batch_size=configs.dataset_config.batch_size,
+#         shuffle=True,
+#     )
+# )
+#
+# trainer.test(
+#     model=lit_FCNN,
+#     dataloaders=DataLoader(
+#         dataset=finetune_test,
+#         batch_size=configs.dataset_config.batch_size,
+#         shuffle=True,
+#     ),
+# )
 
-if "freeze" in configs.training_config.mode:
-    lit_TSTCC.freeze_encoder()
-
-if "finetune" in configs.training_config.mode:
-    lit_TSTCC.finetune()
-    finetune_loop = pl.Trainer(
-        deterministic=False,
-        max_epochs=configs.training_config.finetune_epoch,
-        precision="16-mixed",
-        logger=logger,
-        log_every_n_steps=1,
-        enable_checkpointing=False,
-    )
-
-    finetune_loop.fit(
-        model=lit_TSTCC,
-        train_dataloaders=DataLoader(
-            dataset=finetune_train,
-            batch_size=configs.dataset_config.batch_size,
-            shuffle=True,
-            pin_memory=True,
-        ),
-        val_dataloaders=DataLoader(
-            dataset=finetune_val,
-            batch_size=configs.dataset_config.batch_size,
-            shuffle=True,
-            pin_memory=True,
-        )
-    )
-
-    finetune_loop.test(
-        model=lit_TSTCC,
-        dataloaders=DataLoader(
-            dataset=finetune_test,
-            batch_size=configs.dataset_config.batch_size,
-            shuffle=True,
-            pin_memory=True,
-        ),
-    )
-
-# for fn in configs.training_config.bag_of_metrics.values():
-#     fn.to("cpu")
+for fn in configs.training_config.bag_of_metrics.values():
+    fn.to("cpu")
 
 # baseline_model = [
-#     DecisionTreeClassifier(),
-#     KNeighborsClassifier(),
-#     AdaBoostClassifier(),
+#     RandomForestClassifier(n_estimators=5, max_depth=30),
+#     KNeighborsClassifier(n_neighbors=5),
 # ]
-#
+# print("-" * 10 + "pretrain-test" + "-" * 10)
+# get_baseline_performance(
+#     models=baseline_model,
+#     train_data=pretrain_dataset,
+#     test_data=finetune_test,
+#     metrics=configs.training_config.bag_of_metrics,
+# )
+# print("-" * 10 + "finetune-test" + "-" * 10)
 # get_baseline_performance(
 #     models=baseline_model,
 #     train_data=finetune_train,

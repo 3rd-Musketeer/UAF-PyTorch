@@ -4,7 +4,6 @@ from torchmetrics import Accuracy, F1Score, Precision, Recall, AUROC
 class Configs:
     def __init__(self):
         # preprocess configs
-        #self.dataset_config = EMGGestureConfig()
         self.dataset_config = EMGGestureConfig()
         self.model_config = ModelConfig(self.dataset_config)
         self.training_config = TrainingConfig(self.dataset_config)
@@ -35,7 +34,7 @@ class EMGGestureConfig:
 
 class NinaproDB5Config:
     def __init__(self):
-        self.url = [
+        self.urls = [
             "http://ninapro.hevs.ch/download/file/fid/457",
             "http://ninapro.hevs.ch/download/file/fid/458",
             "http://ninapro.hevs.ch/download/file/fid/459",
@@ -50,14 +49,14 @@ class NinaproDB5Config:
         self.save_dir = "dataset/Ninapro_DB5"
 
         self.batch_size = 256
-        self.partition = [0.7, 0, 0.3]
+        self.partition = [0.8, 0, 0.2]
 
         self.sampling_freq = 200
         self.pass_band = None
-        self.classes = [0, 6, 13, 14, 15, 16]
-        self.window_length = 128
-        self.window_padding = 8
-        self.window_step = 16
+        self.classes = [1, 2, 3, 4, 5, 6]
+        self.window_length = 512
+        self.window_padding = 32
+        self.window_step = 256
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)
@@ -70,27 +69,10 @@ class NinaproDB5Config:
 
 
 class ModelConfig:
-    def __init__(self, dataset_config):
+    def __init__(self, dataset_config: EMGGestureConfig):
         # (B, C, T)
-        self.span = dataset_config.window_length  # keeping up with window length
-
         self.input_channels = dataset_config.channels
-        self.kernel_size = 8
-        self.stride = 1
-        self.final_out_channels = 128
-
         self.num_classes = dataset_config.num_classes
-        self.dropout = 0.35
-        self.conv_output_dim = self.span // 8
-        self.feature_len = 256
-
-        self.hidden_dim = 100
-        self.timesteps = self.conv_output_dim // 4
-
-        self.loss_temperature = 0.2
-
-        self.classifier_hidden = [512, self.num_classes]
-        self.classifier_dropout = 0.15
 
 
 class TrainingConfig:
@@ -123,20 +105,15 @@ class TrainingConfig:
             ),
         }
         self.log_save_dir = "FYP"
-        self.experiment_name = "TSTCC/Random Init"
-
-        self.mode = "finetune"
+        self.experiment_name = "Full_Sup_Baseline"
 
         self.seed = 42
-        self.pretrain_epoch = 0
-        self.finetune_epoch = 100
+        self.epoch = 30
 
-        self.lr = 3e-4
+        self.lr = 1e-3
 
-        self.classifier_lr = 1e-4
-        self.classifier_weight_decay = 3e-3
+        self.lr_step = 5
 
-        self.per_class_samples = 40
+        self.per_class_samples = 100
 
-        self.version = f"samples_{self.per_class_samples}_pe_{self.pretrain_epoch}_fe_{self.finetune_epoch}_seed_{self.seed}"
-
+        self.version = f"samples_{self.per_class_samples}_ep_{self.epoch}_seed_{self.seed}"

@@ -11,18 +11,18 @@ class Configs:
 
 class EMGGestureConfig:
     def __init__(self):
-        self.urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"]
+        self.url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00481/EMG_data_for_gestures-master.zip"
         self.save_dir = "dataset/EMGGesture"
 
         self.batch_size = 256
-        self.partition = [0.4, 0.4, 0.2]
+        self.partition = [0.8, 0., 0.2]
 
         self.sampling_freq = 1000
         self.pass_band = 200
         self.classes = [1, 2, 3, 4, 5, 6]
-        self.window_length = 512
+        self.window_length = 256
         self.window_padding = 32
-        self.window_step = 256
+        self.window_step = 64
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)
@@ -57,44 +57,46 @@ class ModelConfig:
 
         self.loss_temperature = 0.2
         self.loss_margin = 1
-        self.loss_weight = 0.8
+        self.loss_weight = 0.2
 
 
 class TrainingConfig:
     def __init__(self, config):
         self.bag_of_metrics = {
-            # "accuracy": Accuracy(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
+            "accuracy": Accuracy(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="micro",
+            ),
             "f1": F1Score(
                 task="multiclass",
                 num_classes=config.num_classes,
                 average="macro",
             ),
-            # "precision": Precision(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
-            # "recall": Recall(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
-            # "auroc": AUROC(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
+            "precision": Precision(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
+            "recall": Recall(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
+            "auroc": AUROC(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
         }
-        self.log_save_dir = "log"
-        self.experiment_name = "test_phase"
+        self.log_save_dir = "FYP"
+        self.experiment_name = "TFC/Random Init"
 
-        self.seed = 315
-        self.pretrain_epoch = 5
-        self.finetune_epoch = 70
+        self.mode = "finetune"
+
+        self.seed = 114514
+        self.pretrain_epoch = 0
+        self.finetune_epoch = 100
 
         self.encoder_plr = 1e-4
         self.encoder_flr = 1e-5
@@ -105,3 +107,7 @@ class TrainingConfig:
         self.classifier_lrs_cooldown = 5
         self.classifier_lrs_patience = 10
         self.classifier_lrs_minlr = self.classifier_lr * 1e-3
+
+        self.per_class_samples = 100
+
+        self.version = f"samples_{self.per_class_samples}_pe_{self.pretrain_epoch}_fe_{self.finetune_epoch}_seed_{self.seed}"

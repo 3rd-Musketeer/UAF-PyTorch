@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 
-def generate_augment_pairs(sigs, labs, config):
+def generate_augment_pairs(sigs, labs, subs, config):
     wl = config.window_length
     step = config.window_step
     threshold = config.threshold
@@ -21,7 +21,8 @@ def generate_augment_pairs(sigs, labs, config):
     mapping = {}
     for i, c in enumerate(classes):
         mapping[c] = i
-    for sig, lab in tqdm(zip(sigs, labs), desc="Generating pairs"):
+    cl = []
+    for sig, lab, sub in tqdm(zip(sigs, labs, subs), desc="Generating pairs"):
         assert sig.ndim == 2, f"(C, T) {sig.shape}"
         assert lab.ndim == 1, f"(T) {lab.shape}"
         if config.pass_band:
@@ -42,48 +43,54 @@ def generate_augment_pairs(sigs, labs, config):
                     weak_aug = torch.tensor(weak_aug, dtype=torch.float32)
                     strong_aug = torch.tensor(strong_aug, dtype=torch.float32)
                     y = torch.tensor(y, dtype=torch.int64)
-
-                    pairs.append((x, weak_aug, strong_aug, y))
+                    cl.append(y)
+                    pairs.append((x, weak_aug, strong_aug, sub, y))
             lf += step
             rg += step
-
+    counts = np.bincount(cl)
+    mean_counts = np.mean(counts)
+    print("Dataset class count:", counts, "Sum: ", len(cl))
+    if (mean_counts < counts).any:
+        new_pairs = []
+        cc = []
+        print("Re-balancing classes")
+        for c in range(len(counts)):
+            tmp = []
+            for ins in pairs:
+                if ins[-1] == c:
+                    tmp.append(ins)
+            assert counts[c] == len(tmp)
+            if counts[c] > 2 * mean_counts:
+                num_samples = int(mean_counts ** 2 / counts[c])
+                idx = np.random.choice(len(tmp), num_samples)
+                for i in idx:
+                    new_pairs.append(pairs[i])
+                cc.append(num_samples)
+            else:
+                new_pairs += tmp
+                cc.append(len(tmp))
+        pairs = new_pairs
+        print("Re-balanced class counts:", cc, "Sum:", sum(cc))
     return pairs
 
 
 def preprocess(data_dir, config):
     data_dict = torch.load(data_dir)
-    augmented_pairs = generate_augment_pairs(data_dict["sig"], data_dict["lab"], config)
+    augmented_pairs = generate_augment_pairs(
+        data_dict["sig"],
+        data_dict["lab"],
+        data_dict["sub"],
+        config,
+    )
     return augmented_pairs
 
 
 class TSTCCDataset(Dataset):
-    def __init__(self, data_dir, config, mode=None, sampler=None):
-        self.data = preprocess(data_dir, config)
-        if sampler:
-            self.sampled_set, self.remaining_set = sampler(self.data)
-        self.mode = None
+    def __init__(self, data_dir, config):
+        self.dataset = preprocess(data_dir, config)
 
     def __getitem__(self, index):
-        if self.mode == "train":
-            return self.sampled_set[index]
-        elif self.mode == "test":
-            return self.remaining_set[index]
-        else:
-            return self.data[index]
+        return self.dataset[index]
 
     def __len__(self):
-        if self.mode == "train":
-            return len(self.sampled_set)
-        elif self.mode == "test":
-            return len(self.remaining_set)
-        else:
-            return len(self.data)
-
-    def train(self):
-        self.mode = "train"
-
-    def test(self):
-        self.mode = "test"
-
-    def all(self):
-        self.mode = "all"
+        return len(self.dataset)

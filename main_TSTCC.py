@@ -1,5 +1,5 @@
 import os
-from models.baselines.ML_baselines import get_baseline_performance
+from models.baselines.ml_baselines import get_baseline_performance
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier

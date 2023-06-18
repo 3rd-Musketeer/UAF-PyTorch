@@ -23,10 +23,11 @@ def get_file_dirs(path, partition):
     def path2filedir(path):
         files = []
         for p in path:
+            sub_number = os.path.split(p)[-1][1:]
             for f in os.listdir(p):
                 fd = os.path.join(p, f)
                 if os.path.isfile(fd) and '.mat' in f and 'E2' in f:
-                    files.append(fd)
+                    files.append((fd, int(sub_number)))
         return files
 
     train_files = path2filedir(train_path)
@@ -39,13 +40,15 @@ def get_file_dirs(path, partition):
 def extract_raw_data(file_paths):
     sig_sequences = []
     lab_sequences = []
-    for fp in file_paths:
+    sub_sequences = []
+    for fp, sub in file_paths:
         matfile = scio.loadmat(fp)
         signal = np.array(matfile["emg"][..., :8].swapaxes(0, 1), dtype="float32")
         label = np.array(matfile["restimulus"], dtype="uint8").squeeze(-1)
         sig_sequences.append(signal)
         lab_sequences.append(label)
-    return sig_sequences, lab_sequences
+        sub_sequences.append(sub)
+    return sig_sequences, lab_sequences, sub_sequences
 
 
 class NinaproDB5DataModule(pl.LightningDataModule):
@@ -96,16 +99,16 @@ class NinaproDB5DataModule(pl.LightningDataModule):
             # preprocess dataset
             # if not os.path.exists(path := os.path.join(self.config.save_dir, "train_set.pt")):
             path = os.path.join(self.config.save_dir, "train_set.pt")
-            train_sig, train_lab = extract_raw_data(train_files)
-            torch.save({"sig": train_sig, "lab": train_lab}, path)
+            train_sig, train_lab, train_sub = extract_raw_data(train_files)
+            torch.save({"sig": train_sig, "lab": train_lab, "sub": train_sub}, path)
             # if not os.path.exists(path := os.path.join(self.config.save_dir, "val_set.pt")):
             path = os.path.join(self.config.save_dir, "val_set.pt")
-            val_sig, val_lab = extract_raw_data(val_files)
-            torch.save({"sig": val_sig, "lab": val_lab}, path)
+            val_sig, val_lab, val_sub = extract_raw_data(val_files)
+            torch.save({"sig": val_sig, "lab": val_lab, "sub": val_sub}, path)
             # if not os.path.exists(path := os.path.join(self.config.save_dir, "test_set.pt")):
             path = os.path.join(self.config.save_dir, "test_set.pt")
-            test_sig, test_lab = extract_raw_data(test_files)
-            torch.save({"sig": test_sig, "lab": test_lab}, path)
+            test_sig, test_lab, test_sub = extract_raw_data(test_files)
+            torch.save({"sig": test_sig, "lab": test_lab, "sub": test_sub}, path)
 
     def pretrain_dataset(self):
         return self.dataset_type(
@@ -119,11 +122,11 @@ class NinaproDB5DataModule(pl.LightningDataModule):
             self.config,
         )
 
-def test():
-    from configs.TSTCC_configs import NinaproDB5Config
-    from preprocess.TSTCC_preprocess import TSTCCDataset
-    config = NinaproDB5Config()
-    ninapro_db5_dataset = NinaproDB5DataModule(config=config, dataset_type=TSTCCDataset)
-    ninapro_db5_dataset.prepare_data()
-    pretrain_dataset = ninapro_db5_dataset.pretrain_dataset()
-    finetune_dataset = ninapro_db5_dataset.finetune_dataset()
+# def test():
+#     from configs.TSTCC_configs import NinaproDB5Config
+#     from preprocess.TSTCC_preprocess import TSTCCDataset
+#     config = NinaproDB5Config()
+#     ninapro_db5_dataset = NinaproDB5DataModule(config=config, dataset_type=TSTCCDataset)
+#     ninapro_db5_dataset.prepare_data()
+#     pretrain_dataset = ninapro_db5_dataset.pretrain_dataset()
+#     finetune_dataset = ninapro_db5_dataset.finetune_dataset()

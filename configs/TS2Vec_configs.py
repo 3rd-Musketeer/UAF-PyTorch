@@ -53,31 +53,31 @@ class ModelConfig:
 class TrainingConfig:
     def __init__(self, config):
         self.bag_of_metrics = {
-            # "accuracy": Accuracy(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
+            "accuracy": Accuracy(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="micro",
+            ),
             "f1": F1Score(
                 task="multiclass",
                 num_classes=config.num_classes,
                 average="macro",
             ),
-            # "precision": Precision(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
-            # "recall": Recall(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
-            # "auroc": AUROC(
-            #     task="multiclass",
-            #     num_classes=config.num_classes,
-            #     average="macro",
-            # ),
+            "precision": Precision(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
+            "recall": Recall(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
+            "auroc": AUROC(
+                task="multiclass",
+                num_classes=config.num_classes,
+                average="macro",
+            ),
         }
         self.log_save_dir = "log"
         self.experiment_name = "test_phase"
