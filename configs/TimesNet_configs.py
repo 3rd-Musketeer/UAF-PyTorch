@@ -16,7 +16,7 @@ class EMGGestureConfig:
 
         self.batch_size = 128
         self.partition = [0.8, 0., 0.2]
- 
+
         self.sampling_freq = 1000
         self.pass_band = 200
         self.classes = [1, 2, 3, 4, 5, 6]
@@ -80,6 +80,9 @@ class ModelConfig:
         self.dropout = 0
         self.embed = 'timeF'
         self.freq = 's'
+        self.n_heads = 8
+        self.moving_average = 25
+        self.activation = 'gelu'
 
         self.seq_len = dataset_config.window_length
         self.pred_len = 0
@@ -120,11 +123,11 @@ class TrainingConfig:
         self.experiment_name = "times_net"
 
         self.seed = 42
-        self.epoch = 30
+        self.epoch = 100
 
-        self.lr = 5e-1
+        self.lr = 1e-3
 
-        self.lr_step = 5
+        self.lr_step = 20
 
         self.per_class_samples = 100
 
