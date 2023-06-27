@@ -6,12 +6,17 @@ from utils.augmentations import *
 from scipy import signal as scisig
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from sklearn.preprocessing import MinMaxScaler
 
 
 class AugmentBank:
-    def __init__(self, wl):
+    def __init__(self, config):
         self.fns = [jitter, scaling, permute]
-        self.wl = wl
+        if "N" in config.augmentation:
+            self.fns.append(neighboring_segment)
+        if "P" in config.augmentation:
+            self.fns.append(permute_channels)
+        self.wl = config.window_length
 
     def __call__(self, x_t1, x_t2):
         fn = np.random.choice(self.fns)
@@ -30,7 +35,7 @@ def generate_augment_pairs(sigs, labs, subs, config):
     if config.pass_band:
         sos = scisig.iirfilter(4, config.pass_band, btype="lowpass", ftype='butter', output='sos', fs=config.sampling_freq)
         filter = lambda sig: scisig.sosfilt(sos, sig, axis=-1)
-    time_augment = AugmentBank(wl)
+    time_augment = AugmentBank(config)
     pairs = []
     mapping = {}
     for i, c in enumerate(classes):
@@ -51,9 +56,9 @@ def generate_augment_pairs(sigs, labs, subs, config):
                     x_t1 = sig[:, lf:rg1]
                     x_t2 = sig[:, lf:rg2]
 
-                    spectrum = np.fft.rfft(x_t1, axis=-1) / wl
+                    # spectrum = np.fft.rfft(x_t1, axis=-1) / wl
 
-                    x_f = np.abs(fft(x_t1, axis=-1))
+                    x_f = np.abs(fft(x_t1, axis=-1, norm="ortho"))
                     # magnitude = np.abs(spectrum)[..., :-1]
                     # phase = np.abs(np.angle(spectrum)[..., :-1])
                     # plt.subplot(2, 1, 1)
@@ -97,11 +102,22 @@ def preprocess(data_dir, config):
 
 
 class TFCDataset(Dataset):
-    def __init__(self, data_dir, config):
-        self.dataset = preprocess(data_dir, config)
+    def __init__(self, data_dir=None, config=None, dataset=None):
+        if dataset is None:
+            self.dataset = preprocess(data_dir, config)
+        else:
+            self.dataset = dataset
 
     def __getitem__(self, index):
         return self.dataset[index]
 
     def __len__(self):
         return len(self.dataset)
+
+    def split(self):
+        Xs = []
+        ys = []
+        for item in self.dataset:
+            Xs.append(item[0].unsqueeze(0))
+            ys.append(item[-1].unsqueeze(0))
+        return torch.concatenate(Xs).numpy(), torch.concatenate(ys).numpy()

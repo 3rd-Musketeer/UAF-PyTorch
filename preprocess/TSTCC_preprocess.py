@@ -86,11 +86,22 @@ def preprocess(data_dir, config):
 
 
 class TSTCCDataset(Dataset):
-    def __init__(self, data_dir, config):
-        self.dataset = preprocess(data_dir, config)
+    def __init__(self, data_dir=None, config=None, dataset=None):
+        if dataset is None:
+            self.dataset = preprocess(data_dir, config)
+        else:
+            self.dataset = dataset
 
     def __getitem__(self, index):
         return self.dataset[index]
 
     def __len__(self):
         return len(self.dataset)
+
+    def split(self):
+        Xs = []
+        ys = []
+        for item in self.dataset:
+            Xs.append(item[0].unsqueeze(0))
+            ys.append(item[-1].unsqueeze(0))
+        return torch.concatenate(Xs).numpy(), torch.concatenate(ys).numpy()

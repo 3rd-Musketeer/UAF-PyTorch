@@ -2,9 +2,12 @@ from torchmetrics import Accuracy, F1Score, Precision, Recall, AUROC
 
 
 class Configs:
-    def __init__(self):
+    def __init__(self, dataset="EMG"):
         # preprocess configs
-        self.dataset_config = EMGGestureConfig()
+        if dataset == "EMG":
+            self.dataset_config = EMGGestureConfig()
+        elif dataset == "NINA":
+            self.dataset_config = NinaproDB5Config()
         self.model_config = ModelConfig(self.dataset_config)
         self.training_config = TrainingConfig(self.dataset_config)
 
@@ -32,6 +35,46 @@ class EMGGestureConfig:
         self.num_permute = 8
         self.frequency_masking_ratio = 0.01
         self.frequency_masking_damp = 0.5
+
+        self.augmentation = ""
+
+
+class NinaproDB5Config:
+    def __init__(self):
+        self.url = [
+            "http://ninapro.hevs.ch/download/file/fid/457",
+            "http://ninapro.hevs.ch/download/file/fid/458",
+            "http://ninapro.hevs.ch/download/file/fid/459",
+            "http://ninapro.hevs.ch/download/file/fid/467",
+            "http://ninapro.hevs.ch/download/file/fid/461",
+            "http://ninapro.hevs.ch/download/file/fid/462",
+            "http://ninapro.hevs.ch/download/file/fid/463",
+            "http://ninapro.hevs.ch/download/file/fid/464",
+            "http://ninapro.hevs.ch/download/file/fid/465",
+            "http://ninapro.hevs.ch/download/file/fid/466",
+        ]
+        self.save_dir = "dataset/Ninapro_DB5"
+
+        self.batch_size = 64
+        self.partition = [0.6, 0, 0.4]
+
+        self.sampling_freq = 200
+        self.pass_band = None
+        self.classes = [0, 6, 13, 14, 15, 16]
+        self.window_length = 512
+        self.window_padding = 32
+        self.window_step = 64
+        self.threshold = 0
+        self.channels = 8
+        self.num_classes = len(self.classes)
+
+        self.jitter_ratio = 0.1
+        self.scaling_ratio = 0.1
+        self.num_permute = 8
+        self.frequency_masking_ratio = 0.01
+        self.frequency_masking_damp = 0.5
+
+        self.augmentation = ""
 
 
 class ModelConfig:
@@ -89,13 +132,13 @@ class TrainingConfig:
                 average="macro",
             ),
         }
-        self.log_save_dir = "FYP"
-        self.experiment_name = "TFC/Random Init"
+        self.log_save_dir = "run1"
+        self.experiment_name = "TFC"
 
-        self.mode = "finetune"
+        self.mode = "pretrain_finetune"
 
-        self.seed = 114514
-        self.pretrain_epoch = 0
+        self.seed = 42
+        self.pretrain_epoch = 5
         self.finetune_epoch = 100
 
         self.encoder_plr = 1e-4

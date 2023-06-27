@@ -37,7 +37,7 @@ class EMGGestureConfig:
 
 class NinaproDB5Config:
     def __init__(self):
-        self.url = [
+        self.urls = [
             "http://ninapro.hevs.ch/download/file/fid/457",
             "http://ninapro.hevs.ch/download/file/fid/458",
             "http://ninapro.hevs.ch/download/file/fid/459",
@@ -72,29 +72,15 @@ class NinaproDB5Config:
 
 
 class ModelConfig:
-    def __init__(self, dataset_config):
+    def __init__(self, dataset_config: EMGGestureConfig):
         # (B, C, T)
-        self.span = dataset_config.window_length  # keeping up with window length
-
         self.input_channels = dataset_config.channels
-        self.kernel_size = 8
-        self.stride = 1
-        self.final_out_channels = 128
-
+        self.feature_channels = 128
         self.num_classes = dataset_config.num_classes
-        self.dropout = 0.35
-        self.conv_output_dim = self.span // 8
-        self.feature_len = 128
-
-        self.hidden_dim = 100
-        self.timesteps = self.conv_output_dim // 4
-
-        self.loss_temperature = 0.2
+        self.masking_ratio = .2
 
         self.classifier_hidden = [512, self.num_classes]
-        self.classifier_dropout = 0.15
-
-
+        self.classifier_dropout = 0.1
 class TrainingConfig:
     def __init__(self, config):
         self.bag_of_metrics = {
@@ -125,20 +111,19 @@ class TrainingConfig:
             ),
         }
         self.log_save_dir = "run1"
-        self.experiment_name = "TSTCC"
+        self.experiment_name = "FCNNIMP"
 
         self.mode = "pretrain_finetune"
 
         self.seed = 42
-        self.pretrain_epoch = 100
-        self.finetune_epoch = 100
+        self.pretrain_epoch = 20
+        self.finetune_epoch = 150
 
-        self.lr = 3e-4
+        self.lr = 1e-3
+        self.classifier_lr = 1e-3
 
-        self.classifier_lr = 1e-4
-        self.classifier_weight_decay = 3e-3
+        self.lr_step = 50
 
         self.per_class_samples = 100
 
         self.version = f"samples_{self.per_class_samples}_pe_{self.pretrain_epoch}_fe_{self.finetune_epoch}_seed_{self.seed}"
-

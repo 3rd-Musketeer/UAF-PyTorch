@@ -31,7 +31,7 @@ def split_dataset(dataset, num_samples, num_classes=None, shuffle=True):
             num = num_samples
         elif isinstance(num_samples, float):
             num = int(num_samples * cnt)
-            if int(len(cl_pos[cl]) * num_samples) <= 0:
+            if int(cnt * num_samples) <= 0:
                 raise RuntimeWarning(f"num_samples of class {cl} is zero!")
         else:
             raise ValueError(f"Invalid input value type {type(num_samples)}")
@@ -39,7 +39,7 @@ def split_dataset(dataset, num_samples, num_classes=None, shuffle=True):
         for s in range(num_sub):
             if shuffle:
                 np.random.shuffle(cl_pos[cl][s])
-            lf = np.random.randint(0, len(cl_pos[cl][s]) - num_sample_sub, 1)[0]
+            lf = np.random.randint(0, max(len(cl_pos[cl][s]) - num_sample_sub, 1), 1)[0]
             rg = lf + num_sample_sub
             idx += cl_pos[cl][s][lf:rg]
             idx_inv += cl_pos[cl][s][:lf] + cl_pos[cl][s][rg:]

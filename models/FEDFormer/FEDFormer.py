@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.fft
-from layers.Embed import DataEmbedding
-from layers.AutoCorrelation import AutoCorrelationLayer
-from layers.FourierCorrelation import FourierBlock, FourierCrossAttention
-from layers.MultiWaveletCorrelation import MultiWaveletCross, MultiWaveletTransform
-from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp
+from utils.layers.Embed import DataEmbedding
+from utils.layers.AutoCorrelation import AutoCorrelationLayer
+from utils.layers.FourierCorrelation import FourierBlock, FourierCrossAttention
+from utils.layers.MultiWaveletCorrelation import MultiWaveletCross, MultiWaveletTransform
+from utils.layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp
 import lightning.pytorch as pl
 
 class Model(nn.Module):
@@ -33,26 +33,12 @@ class Model(nn.Module):
         self.decomp = series_decomp(configs.moving_avg)
         self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                            configs.dropout)
-        self.dec_embedding = DataEmbedding(configs.dec_in, configs.d_model, configs.embed, configs.freq,
-                                           configs.dropout)
 
-        if self.version == 'Wavelets':
-            encoder_self_att = MultiWaveletTransform(ich=configs.d_model, L=1, base='legendre')
-            decoder_self_att = MultiWaveletTransform(ich=configs.d_model, L=1, base='legendre')
-            decoder_cross_att = MultiWaveletCross(in_channels=configs.d_model,
-                                                  out_channels=configs.d_model,
-                                                  seq_len_q=self.seq_len // 2 + self.pred_len,
-                                                  seq_len_kv=self.seq_len,
-                                                  modes=self.modes,
-                                                  ich=configs.d_model,
-                                                  base='legendre',
-                                                  activation='tanh')
-        else:
-            encoder_self_att = FourierBlock(in_channels=configs.d_model,
-                                            out_channels=configs.d_model,
-                                            seq_len=self.seq_len,
-                                            modes=self.modes,
-                                            mode_select_method=self.mode_select)
+        encoder_self_att = FourierBlock(in_channels=configs.d_model,
+                                        out_channels=configs.d_model,
+                                        seq_len=self.seq_len,
+                                        modes=self.modes,
+                                        mode_select_method=self.mode_select)
         # Encoder
         self.encoder = Encoder(
             [
@@ -94,7 +80,7 @@ class Model(nn.Module):
         return None
 
 
-class LitTimesNet(pl.LightningModule):
+class LitFEDFormer(pl.LightningModule):
     def __init__(self, config):
         super().__init__()
         self.automatic_optimization = False

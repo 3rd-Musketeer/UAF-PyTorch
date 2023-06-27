@@ -28,7 +28,7 @@ class TFCEncoder(nn.Module):
             in_channels=config.span,
             hidden_channels=config.projector_hidden,
             norm_layer=nn.BatchNorm1d,
-            activation_layer=nn.ReLU,
+            activation_layer=nn.GELU,
             bias=config.projector_bias,
             dropout=config.projector_dropout,
         )
@@ -53,7 +53,7 @@ class TFCEncoder(nn.Module):
             in_channels=config.span,
             hidden_channels=config.projector_hidden,
             norm_layer=nn.BatchNorm1d,
-            activation_layer=nn.ReLU,
+            activation_layer=nn.GELU,
             bias=config.projector_bias,
             dropout=config.projector_dropout,
         )

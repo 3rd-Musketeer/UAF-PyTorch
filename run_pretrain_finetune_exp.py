@@ -1,33 +1,49 @@
 import os
 import shutil
-import sys
-from models.baselines.ml_baselines import get_baseline_performance
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
 from dataset.EMG_Gesture_v2 import EMGGestureDataModule
 from dataset.Ninapro_DB5 import NinaproDB5DataModule
 from models.TSTCC.lit_model import LitTSTCC
+from models.TFC.lit_model import LitTFC
+from models.FCNNIMP import LitFCNNIMP
 from configs.TSTCC_configs import Configs
 import lightning.pytorch as pl
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
 import torch
 from lightning.pytorch import seed_everything
 from shutil import copyfile
 from preprocess.TSTCC_preprocess import TSTCCDataset
+from preprocess.TFC_preprocess import TFCDataset
 from utils.sampler import split_dataset
-from utils.terminal_logger import TerminalLogger
 from torch.utils.data import DataLoader
 import argparse
+import sys
+from utils.terminal_logger import TerminalLogger
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--per_class_samples", type=int, default=100)
+parser.add_argument("--config_dir", type=str, default=None)
 parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--dataset", type=str, default="NINA", help="EMG or NINA")
+parser.add_argument("--pretrain_model_dir", type=str, default=None)
+parser.add_argument("--model", type=str, default="TFC", help="TSTCC, TFC, FCNNIMP")
+parser.add_argument("--log_save_dir", type=str, default="run1")
+parser.add_argument("--augmentation", type=str, default="")
+parser.add_argument("--experiment_name", type=str, default=None)
+parser.add_argument("--pretrain_epoch", type=int, default=None)
+parser.add_argument("--finetune_epoch", type=int, default=None)
 args = parser.parse_args()
 
+if args.experiment_name is None:
+    args.experiment_name = args.model
+
 # Initialization
-config_dir = "configs/TSTCC_configs.py"
-preprocess_dir = "preprocess/TSTCC_preprocess.py"
+if args.config_dir is None:
+    config_dir = f"configs/{args.model}_configs.py"
+else:
+    config_dir = args.config_dir
+
+preprocess_dir = f"preprocess/{args.model}_preprocess.py"
 # config_dir = r"test_run/version_23/TFC_configs.py"
 import_path = ".".join(config_dir.split(".")[0].split("/"))
 print(f"from {import_path} import Configs")
@@ -37,34 +53,52 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 if device == "cuda":
     torch.set_float32_matmul_precision('medium')
 
-configs = Configs()
-configs.training_config.per_class_samples = args.per_class_samples
-configs.training_config.seed = args.seed
-configs.training_config.version = f"samples_{configs.training_config.per_class_samples}_pe_{configs.training_config.pretrain_epoch}_fe_{configs.training_config.finetune_epoch}_seed_{configs.training_config.seed}"
+configs = Configs(args.dataset)
+for k, v in args.__dict__.items():
+    if v is not None:
+        configs.training_config.__setattr__(k, v)
+configs.dataset_config.augmentation = args.augmentation
+# configs.training_config.per_class_samples = args.per_class_samples
+# configs.training_config.seed = args.seed
+configs.training_config.version = f"{args.dataset}_" \
+                                  f"samples_{configs.training_config.per_class_samples}_" \
+                                  f"pe_{configs.training_config.pretrain_epoch}_" \
+                                  f"fe_{configs.training_config.finetune_epoch}_" \
+                                  f"seed_{configs.training_config.seed}_" \
+                                  f"aug_{configs.training_config.augmentation}"
 
 log_dir = os.path.join(
     configs.training_config.log_save_dir,
     configs.training_config.experiment_name,
     configs.training_config.version,
-    "log"
 )
 
 if os.path.exists(log_dir):
     shutil.rmtree(log_dir)
 os.makedirs(log_dir)
 
+sys.stdout = TerminalLogger(os.path.join(log_dir, "log.txt"), sys.stdout)
+sys.stderr = TerminalLogger(os.path.join(log_dir, "err_log.txt"), sys.stderr)
+
 seed_everything(configs.training_config.seed)
 
 for fn in configs.training_config.bag_of_metrics.values():
     fn.to(device)
 
-# dataset = EMGGestureDataModule(
-#     dataset_type=TSTCCDataset,
-#     config=configs.dataset_config,
-# )
+if args.dataset == "EMG":
+    DataModule = EMGGestureDataModule
+elif args.dataset == "NINA":
+    DataModule = NinaproDB5DataModule
+else:
+    raise ValueError(f"Unknown dataset {args.dataset}")
 
-dataset = NinaproDB5DataModule(
-    dataset_type=TSTCCDataset,
+if args.model == "TFC":
+    dataset_type = TFCDataset
+else:
+    dataset_type = TSTCCDataset
+
+dataset = DataModule(
+    dataset_type=dataset_type,
     config=configs.dataset_config,
 )
 dataset.prepare_data()
@@ -84,7 +118,7 @@ finetune_val, finetune_test = split_dataset(
     shuffle=True,
 )
 
-lit_TSTCC = LitTSTCC(configs)
+lit_model = eval(f"Lit{args.model}(configs)")
 
 logger = TensorBoardLogger(
     save_dir=configs.training_config.log_save_dir,
@@ -92,78 +126,69 @@ logger = TensorBoardLogger(
     version=configs.training_config.version,
 )
 
-if "pretrain" in configs.training_config.mode:
-    lit_TSTCC.pretrain()
+if args.pretrain_model_dir:
+    lit_model.load_from_checkpoint(args.pretrain_model_dir)
+elif "pretrain" in configs.training_config.mode:
+    ckpt_cb = ModelCheckpoint(
+        filename="m1",
+        save_weights_only=True,
+    )
+    lit_model.pretrain()
     pretrain_loop = pl.Trainer(
         deterministic=False,
         max_epochs=configs.training_config.pretrain_epoch,
         precision="16-mixed",
         logger=logger,
         log_every_n_steps=1,
+        callbacks=[ckpt_cb]
     )
 
     pretrain_loop.fit(
-        model=lit_TSTCC,
+        model=lit_model,
         train_dataloaders=DataLoader(
             dataset=pretrain_dataset,
             batch_size=configs.dataset_config.batch_size,
             shuffle=True,
         ),
     )
+else:
+    raise Exception("Check pretrain code!")
 
 if "freeze" in configs.training_config.mode:
-    lit_TSTCC.freeze_encoder()
+    lit_model.freeze_encoder()
 
 if "finetune" in configs.training_config.mode:
-    lit_TSTCC.finetune()
+    ckpt_cb = ModelCheckpoint(
+        filename="m2",
+        save_weights_only=True,
+    )
+    lit_model.finetune()
     finetune_loop = pl.Trainer(
         deterministic=False,
         max_epochs=configs.training_config.finetune_epoch,
         precision="16-mixed",
         logger=logger,
         log_every_n_steps=1,
-        enable_checkpointing=False,
+        callbacks=[ckpt_cb],
     )
 
     finetune_loop.fit(
-        model=lit_TSTCC,
+        model=lit_model,
         train_dataloaders=DataLoader(
             dataset=finetune_train,
             batch_size=configs.dataset_config.batch_size,
             shuffle=True,
         ),
-        # val_dataloaders=DataLoader(
-        #     dataset=finetune_val,
-        #     batch_size=configs.dataset_config.batch_size,
-        #     shuffle=True,
-        #     pin_memory=True,
-        # )
     )
 
     finetune_loop.test(
-        model=lit_TSTCC,
+        model=lit_model,
         dataloaders=DataLoader(
             dataset=finetune_test,
             batch_size=configs.dataset_config.batch_size,
             shuffle=True,
         ),
     )
-
-# for fn in configs.training_config.bag_of_metrics.values():
-#     fn.to("cpu")
-
-# baseline_model = [
-#     DecisionTreeClassifier(),
-#     KNeighborsClassifier(),
-#     AdaBoostClassifier(),
-# ]
-#
-# get_baseline_performance(
-#     models=baseline_model,
-#     train_data=finetune_train,
-#     test_data=finetune_test,
-#     metrics=configs.training_config.bag_of_metrics,
-# )
 
 config_save_dir = os.path.join(logger.log_dir, config_dir.split("/")[1])
 print(f"Saving config file at {config_save_dir}")
@@ -172,14 +197,5 @@ preprocess_save_dir = os.path.join(logger.log_dir, preprocess_dir.split("/")[1])
 print(f"Saving preprocess file at {preprocess_save_dir}")
 print(copyfile(preprocess_dir, preprocess_save_dir))
 
-# input("Press any key to end the process")
-# log_save_dir = "log.txt"
-# print(f"Saving log file at {log_save_dir}")
-# if os.path.exists(os.path.join(logger.log_dir, "log.txt")):
-#     os.remove(os.path.join(logger.log_dir, "log.txt"))
-# print(copyfile(log_save_dir, os.path.join(logger.log_dir, "log.txt")))
-# err_log_save_dir = "err_log.txt"
-# print(f"Saving err log file at {err_log_save_dir}")
-# if os.path.exists(os.path.join(logger.log_dir, "err_log.txt")):
-#     os.remove(os.path.join(logger.log_dir, "err_log.txt"))
-# print(copyfile(log_save_dir, os.path.join(logger.log_dir, "err_log.txt")))
+sys.stderr.close()
+sys.stdout.close()

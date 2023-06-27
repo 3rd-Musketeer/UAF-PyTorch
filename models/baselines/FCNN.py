@@ -7,7 +7,7 @@ class FCNN(nn.Module):
     def __init__(
             self,
             input_channels,
-            num_classes,
+            num_features,
     ):
         super().__init__()
         self.model = nn.Sequential(
@@ -37,7 +37,7 @@ class FCNN(nn.Module):
             nn.ReLU(),
             nn.Conv1d(
                 in_channels=128,
-                out_channels=num_classes,
+                out_channels=num_features,
                 kernel_size=1,
                 padding="same",
             ),
@@ -57,8 +57,9 @@ class LitFCNN(pl.LightningModule):
         super().__init__()
         self.model = FCNN(
             config.model_config.input_channels,
-            config.model_config.num_classes,
+            config.model_config.feature_len,
         )
+        self.classifier = nn.Linear(config.model_config.feature_len, config.dataset_config.num_classes)
         self.loss = nn.CrossEntropyLoss()
         self.config = config
 
@@ -76,7 +77,8 @@ class LitFCNN(pl.LightningModule):
 
     def train_loop(self, batch, mode):
         x, y = batch[0], batch[-1]
-        logits = self.model(x)
+        features = self.model(x)
+        logits = self.classifier(features)
         loss = self.loss(logits, y)
         metrics = {}
         for name, fn in self.config.training_config.bag_of_metrics.items():
@@ -92,3 +94,6 @@ class LitFCNN(pl.LightningModule):
 
     def test_step(self, batch, idx):
         return self.train_loop(batch, "test")
+
+    def get_features(self, x):
+        return self.model(x)

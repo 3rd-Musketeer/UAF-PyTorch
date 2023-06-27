@@ -49,14 +49,14 @@ class NinaproDB5Config:
         self.save_dir = "dataset/Ninapro_DB5"
 
         self.batch_size = 256
-        self.partition = [0.8, 0, 0.2]
+        self.partition = [0.6, 0, 0.4]
 
         self.sampling_freq = 200
         self.pass_band = None
-        self.classes = [1, 2, 3, 4, 5, 6]
+        self.classes = [0, 6, 13, 14, 15, 16]
         self.window_length = 512
         self.window_padding = 32
-        self.window_step = 256
+        self.window_step = 64
         self.threshold = 0
         self.channels = 8
         self.num_classes = len(self.classes)

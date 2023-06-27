@@ -153,10 +153,14 @@ class LitTSTCC(pl.LightningModule):
         return loss
 
     def training_step(self, batch, idx):
-        self.train_loop(batch, idx, mode=self.mode)
+        return self.train_loop(batch, idx, mode=self.mode)
 
     def validation_step(self, batch, idx):
-        self.predict_loop(batch, idx)
+        return self.predict_loop(batch, idx)
 
     def test_step(self, batch, idx):
-        self.predict_loop(batch, idx)
+        return self.predict_loop(batch, idx)
+
+    def get_features(self, x):
+        features, _ = self.model(x)
+        return features

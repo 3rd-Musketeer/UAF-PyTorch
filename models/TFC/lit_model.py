@@ -17,7 +17,7 @@ class LitTFC(pl.LightningModule):
             in_channels=config.model_config.projector_hidden[-1] * 2,
             hidden_channels=config.model_config.classifier_hidden,
             norm_layer=nn.BatchNorm1d,
-            activation_layer=nn.ReLU,
+            activation_layer=nn.GELU,
             bias=True,
             dropout=config.model_config.classifier_dropout,
         )
@@ -123,13 +123,13 @@ class LitTFC(pl.LightningModule):
         x_t, x_f, aug_t, aug_f, _, labels = batch
 
         x_ht, x_hf, x_zt, x_zf = self.encoder(x_t, x_f)
-        # aug_ht, aug_hf, aug_zt, aug_zf = self.encoder(aug_t, aug_f)
-        #
-        # tfc_loss = self.tfc_loss(
-        #     x_repr=(x_ht, x_hf, x_zt, x_zf),
-        #     aug_repr=(aug_ht, aug_hf, aug_zt, aug_zf),
-        # )
-        tfc_loss = 0
+        aug_ht, aug_hf, aug_zt, aug_zf = self.encoder(aug_t, aug_f)
+
+        tfc_loss = self.tfc_loss(
+            x_repr=(x_ht, x_hf, x_zt, x_zf),
+            aug_repr=(aug_ht, aug_hf, aug_zt, aug_zf),
+        )
+
         features = torch.cat((x_zt, x_zf), dim=-1)
 
         self.log(f"finetune_{mode}_tfc_loss", tfc_loss, on_epoch=True, prog_bar=True)
